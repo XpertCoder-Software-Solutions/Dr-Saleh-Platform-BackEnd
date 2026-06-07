@@ -1,8 +1,10 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import type { HelmetOptions } from 'helmet';
 import { Logger } from 'nestjs-pino';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -11,7 +13,9 @@ import corsConfig, { CorsConfig } from './config/cors.config';
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   const appConfiguration = app.get<AppConfig>(appConfig.KEY);
   const corsConfiguration = app.get<CorsConfig>(corsConfig.KEY);
   const logger = app.get(Logger);
@@ -19,6 +23,9 @@ async function bootstrap() {
   app.useLogger(logger);
   app.enableShutdownHooks();
   app.setGlobalPrefix(appConfiguration.apiPrefix);
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
   app.use(helmet(getHelmetOptions(appConfiguration)));
   app.enableCors({
     origin: corsConfiguration.allowedOrigins.includes('*')

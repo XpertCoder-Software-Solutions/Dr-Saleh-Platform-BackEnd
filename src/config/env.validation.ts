@@ -10,8 +10,18 @@ export type ValidatedEnvironment = {
   API_PREFIX: string;
   LOG_LEVEL: LogLevel;
   DATABASE_URL: string;
-  JWT_SECRET: string;
-  JWT_EXPIRES_IN: string;
+  APP_PUBLIC_URL: string;
+  APP_PLATFORM_URL: string;
+  BRAND_LOGO_PATH: string;
+  BRAND_NAME: string;
+  SUPPORT_EMAIL: string;
+  BREVO_API_KEY: string;
+  BREVO_SENDER_NAME: string;
+  BREVO_SENDER_EMAIL: string;
+  JWT_ACCESS_SECRET: string;
+  JWT_REFRESH_SECRET: string;
+  JWT_ACCESS_EXPIRES_IN: string;
+  JWT_REFRESH_EXPIRES_IN: string;
   CORS_ALLOWED_ORIGINS: string;
   CORS_CREDENTIALS: string;
   THROTTLE_TTL: string;
@@ -53,14 +63,86 @@ export function validateEnv(
     config.DATABASE_URL,
     errors,
   );
-  const jwtSecret = requiredString('JWT_SECRET', config.JWT_SECRET, errors);
+  const appPublicUrl = requiredString(
+    'APP_PUBLIC_URL',
+    config.APP_PUBLIC_URL,
+    errors,
+  );
+  const appPlatformUrl = requiredString(
+    'APP_PLATFORM_URL',
+    config.APP_PLATFORM_URL,
+    errors,
+  );
+  const brandLogoPath = requiredString(
+    'BRAND_LOGO_PATH',
+    config.BRAND_LOGO_PATH,
+    errors,
+  );
+  const brandName = requiredString('BRAND_NAME', config.BRAND_NAME, errors);
+  const supportEmail = requiredString(
+    'SUPPORT_EMAIL',
+    config.SUPPORT_EMAIL,
+    errors,
+  );
+  const brevoApiKey = requiredString(
+    'BREVO_API_KEY',
+    config.BREVO_API_KEY,
+    errors,
+  );
+  const brevoSenderName = requiredString(
+    'BREVO_SENDER_NAME',
+    config.BREVO_SENDER_NAME,
+    errors,
+  );
+  const brevoSenderEmail = requiredString(
+    'BREVO_SENDER_EMAIL',
+    config.BREVO_SENDER_EMAIL,
+    errors,
+  );
+  const jwtAccessSecret = optionalString(
+    config.JWT_ACCESS_SECRET,
+    optionalString(config.JWT_SECRET),
+  );
+  const jwtRefreshSecret = requiredString(
+    'JWT_REFRESH_SECRET',
+    config.JWT_REFRESH_SECRET,
+    errors,
+  );
   const corsAllowedOrigins = optionalString(
     config.CORS_ALLOWED_ORIGINS,
     nodeEnv === 'production' ? '' : '*',
   );
 
-  if (jwtSecret.length > 0 && jwtSecret.length < 32) {
-    errors.push('JWT_SECRET must be at least 32 characters long.');
+  if (jwtAccessSecret.length === 0) {
+    errors.push('JWT_ACCESS_SECRET is required.');
+  }
+
+  if (jwtAccessSecret.length > 0 && jwtAccessSecret.length < 32) {
+    errors.push('JWT_ACCESS_SECRET must be at least 32 characters long.');
+  }
+
+  if (jwtRefreshSecret.length > 0 && jwtRefreshSecret.length < 32) {
+    errors.push('JWT_REFRESH_SECRET must be at least 32 characters long.');
+  }
+
+  if (appPublicUrl.length > 0 && !isUrlLike(appPublicUrl)) {
+    errors.push('APP_PUBLIC_URL must be a valid URL.');
+  }
+
+  if (appPlatformUrl.length > 0 && !isUrlLike(appPlatformUrl)) {
+    errors.push('APP_PLATFORM_URL must be a valid URL.');
+  }
+
+  if (brandLogoPath.length > 0 && !brandLogoPath.startsWith('/')) {
+    errors.push('BRAND_LOGO_PATH must start with "/".');
+  }
+
+  if (supportEmail.length > 0 && !isEmailLike(supportEmail)) {
+    errors.push('SUPPORT_EMAIL must be a valid email address.');
+  }
+
+  if (brevoSenderEmail.length > 0 && !isEmailLike(brevoSenderEmail)) {
+    errors.push('BREVO_SENDER_EMAIL must be a valid email address.');
   }
 
   if (nodeEnv === 'production' && corsAllowedOrigins.length === 0) {
@@ -73,8 +155,18 @@ export function validateEnv(
     API_PREFIX: optionalString(config.API_PREFIX, 'api'),
     LOG_LEVEL: logLevel,
     DATABASE_URL: databaseUrl,
-    JWT_SECRET: jwtSecret,
-    JWT_EXPIRES_IN: optionalString(config.JWT_EXPIRES_IN, '1d'),
+    APP_PUBLIC_URL: appPublicUrl,
+    APP_PLATFORM_URL: appPlatformUrl,
+    BRAND_LOGO_PATH: brandLogoPath,
+    BRAND_NAME: brandName,
+    SUPPORT_EMAIL: supportEmail,
+    BREVO_API_KEY: brevoApiKey,
+    BREVO_SENDER_NAME: brevoSenderName,
+    BREVO_SENDER_EMAIL: brevoSenderEmail,
+    JWT_ACCESS_SECRET: jwtAccessSecret,
+    JWT_REFRESH_SECRET: jwtRefreshSecret,
+    JWT_ACCESS_EXPIRES_IN: optionalString(config.JWT_ACCESS_EXPIRES_IN, '15m'),
+    JWT_REFRESH_EXPIRES_IN: optionalString(config.JWT_REFRESH_EXPIRES_IN, '7d'),
     CORS_ALLOWED_ORIGINS: corsAllowedOrigins,
     CORS_CREDENTIALS: toBooleanString(config.CORS_CREDENTIALS, false, errors),
     THROTTLE_TTL: toIntegerString(
@@ -144,6 +236,19 @@ function requiredString(
 
 function optionalString(value: unknown, defaultValue = ''): string {
   return typeof value === 'string' && value.length > 0 ? value : defaultValue;
+}
+
+function isEmailLike(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isUrlLike(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function toIntegerString(
