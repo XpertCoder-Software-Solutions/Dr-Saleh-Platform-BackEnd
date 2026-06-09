@@ -1,0 +1,3280 @@
+{
+  "info": {
+    "_postman_id": "5f9f7097-8db9-4c93-86b6-2b9df27f0a11",
+    "name": "Dr. Saleh Platform - All APIs",
+    "description": "Complete Postman collection for Dr. Saleh Platform backend. Set {{baseUrl}} and run Auth / Login to auto-save {{accessToken}} and {{refreshToken}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": "user@example.com"
+    },
+    {
+      "key": "password",
+      "value": "StrongPass123"
+    },
+    {
+      "key": "newPassword",
+      "value": "NewStrongPass123"
+    },
+    {
+      "key": "otp",
+      "value": "123456"
+    },
+    {
+      "key": "sampleUuid",
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
+      "key": "governorateId",
+      "value": ""
+    },
+    {
+      "key": "addressId",
+      "value": ""
+    },
+    {
+      "key": "consultationCategoryId",
+      "value": ""
+    },
+    {
+      "key": "consultationId",
+      "value": ""
+    },
+    {
+      "key": "contactMessageId",
+      "value": ""
+    },
+    {
+      "key": "productCategoryId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "productSlug",
+      "value": "sample-product"
+    },
+    {
+      "key": "productImageId",
+      "value": ""
+    },
+    {
+      "key": "articleCategoryId",
+      "value": ""
+    },
+    {
+      "key": "articleTagId",
+      "value": ""
+    },
+    {
+      "key": "articleId",
+      "value": ""
+    },
+    {
+      "key": "articleSlug",
+      "value": "sample-article"
+    },
+    {
+      "key": "courseCategoryId",
+      "value": ""
+    },
+    {
+      "key": "courseId",
+      "value": ""
+    },
+    {
+      "key": "sectionId",
+      "value": ""
+    },
+    {
+      "key": "lessonId",
+      "value": ""
+    },
+    {
+      "key": "certificateNumber",
+      "value": "DS-CERT-000001"
+    },
+    {
+      "key": "bookCategoryId",
+      "value": ""
+    },
+    {
+      "key": "bookId",
+      "value": ""
+    },
+    {
+      "key": "bookSlug",
+      "value": "sample-book"
+    },
+    {
+      "key": "bookImageId",
+      "value": ""
+    },
+    {
+      "key": "bookFormatId",
+      "value": ""
+    },
+    {
+      "key": "cartItemId",
+      "value": ""
+    },
+    {
+      "key": "wishlistId",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "couponId",
+      "value": ""
+    },
+    {
+      "key": "couponCode",
+      "value": "WELCOME10"
+    },
+    {
+      "key": "referralId",
+      "value": ""
+    },
+    {
+      "key": "referralCode",
+      "value": "ABC123"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ahmed Saleh\",\n  \"email\": \"{{email}}\",\n  \"phoneNumber\": \"+201001234567\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.user?.id;",
+                  "if (value) pm.collectionVariables.set(\"userId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/verify-email",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resend Email Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/resend-email-verification",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const data = json.data || {};",
+                  "if (data.accessToken) pm.collectionVariables.set(\"accessToken\", data.accessToken);",
+                  "if (data.refreshToken) pm.collectionVariables.set(\"refreshToken\", data.refreshToken);",
+                  "if (data.user?.id) pm.collectionVariables.set(\"userId\", data.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/refresh-token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const data = json.data || {};",
+                  "if (data.accessToken) pm.collectionVariables.set(\"accessToken\", data.accessToken);",
+                  "if (data.refreshToken) pm.collectionVariables.set(\"refreshToken\", data.refreshToken);",
+                  "if (data.user?.id) pm.collectionVariables.set(\"userId\", data.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/auth/logout"
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/reset-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/profile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Ahmed\",\n  \"lastName\": \"Saleh\",\n  \"phone\": \"+201001234567\",\n  \"gender\": \"Male\",\n  \"dateOfBirth\": \"1999-01-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/change-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Profile Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/users/profile-image",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "profileImage",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Profile Image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/users/profile-image"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Addresses",
+      "item": [
+        {
+          "name": "Create Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/addresses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ahmed Saleh\",\n  \"phoneNumber\": \"+201001234567\",\n  \"governorateId\": \"{{governorateId}}\",\n  \"city\": \"Nasr City\",\n  \"street\": \"Makram Ebeid Street\",\n  \"buildingNumber\": \"12B\",\n  \"floor\": \"3\",\n  \"apartment\": \"8\",\n  \"landmark\": \"Near pharmacy\",\n  \"notes\": \"Call before arrival\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.address?.id;",
+                  "if (value) pm.collectionVariables.set(\"addressId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Addresses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/addresses"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Address",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/addresses/{{addressId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/addresses/{{addressId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"city\": \"New Cairo\",\n  \"street\": \"90 Street\",\n  \"buildingNumber\": \"10\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Address",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/addresses/{{addressId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        {
+          "name": "List Countries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/locations/countries?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "List Cities By Country",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/locations/countries/{{countryId}}/cities?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "List Public Governorates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/governorates?lang=en"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin Governorates",
+      "item": [
+        {
+          "name": "Create Governorate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/governorates",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameAr\": \"القاهرة\",\n  \"nameEn\": \"Cairo\",\n  \"shippingCost\": 75,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.governorate?.id;",
+                  "if (value) pm.collectionVariables.set(\"governorateId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Governorates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/governorates?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Governorate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/governorates/{{governorateId}}?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Governorate",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/governorates/{{governorateId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingCost\": 85,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Governorate",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/governorates/{{governorateId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Consultations",
+      "item": [
+        {
+          "name": "List Consultation Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/consultation-categories?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Consultation Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/consultations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"{{consultationCategoryId}}\",\n  \"fullName\": \"Ahmed Mohamed\",\n  \"age\": 30,\n  \"gender\": \"Male\",\n  \"country\": \"Egypt\",\n  \"phone\": \"+201001234567\",\n  \"whatsApp\": \"+201001234567\",\n  \"email\": \"{{email}}\",\n  \"consultationTopic\": \"Family consultation\",\n  \"notes\": \"Need more details.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Consultation Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/consultation-categories",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameAr\": \"استشارات أسرية\",\n  \"nameEn\": \"Family Consultations\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.category?.id || json.data?.consultationCategory?.id;",
+                  "if (value) pm.collectionVariables.set(\"consultationCategoryId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Consultation Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/consultation-categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Consultation Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/consultation-categories/{{consultationCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Consultation Category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/consultation-categories/{{consultationCategoryId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEn\": \"Family Counseling\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Consultation Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/consultation-categories/{{consultationCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin List Consultation Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/consultations?page=1&limit=20&search=&categoryId={{consultationCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Consultation Request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/consultations/{{consultationId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Consultation Request",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/consultations/{{consultationId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Contact Us",
+      "item": [
+        {
+          "name": "Submit Contact Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contact-us",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ahmed Mohamed\",\n  \"email\": \"{{email}}\",\n  \"phone\": \"+201001234567\",\n  \"message\": \"I need more information about your services.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin List Contact Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/contact-us?page=1&limit=20&search="
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Contact Message",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/contact-us/{{contactMessageId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Contact Message",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/contact-us/{{contactMessageId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List Product Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/product-categories?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?page=1&limit=20&lang=en&categoryId={{productCategoryId}}&search=&isFeatured=true&isHomeDisplay=true"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product By Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/slug/{{productSlug}}?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/{{productId}}?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Product Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/product-categories",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameAr\": \"منتجات العناية\",\n  \"nameEn\": \"Care Products\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.category?.id;",
+                  "if (value) pm.collectionVariables.set(\"productCategoryId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Product Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/product-categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Product Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/product-categories/{{productCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Product Category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/product-categories/{{productCategoryId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEn\": \"Updated Products\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Product Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/product-categories/{{productCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Product",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/admin/products",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "categoryId",
+                  "value": "{{productCategoryId}}",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "nameAr",
+                  "value": "منتج تجريبي",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "nameEn",
+                  "value": "Sample Product",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "slug",
+                  "value": "{{productSlug}}",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "descriptionAr",
+                  "value": "وصف المنتج",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "descriptionEn",
+                  "value": "Product description",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "priceEGP",
+                  "value": "500",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "discountPriceEGP",
+                  "value": "450",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "priceUSD",
+                  "value": "20",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "discountPriceUSD",
+                  "value": "18",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "stock",
+                  "value": "10",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "sku",
+                  "value": "PROD-001",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "isFeatured",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "isHomeDisplay",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "coverImage",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.product?.id;",
+                  "if (value) pm.collectionVariables.set(\"productId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/products?page=1&limit=20&categoryId={{productCategoryId}}&search=&isActive=true&isFeatured=true&isHomeDisplay=true"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Product",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/products/{{productId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Product",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/admin/products/{{productId}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "nameEn",
+                  "value": "Updated Product",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "stock",
+                  "value": "20",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "coverImage",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/products/{{productId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Add Product Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/admin/products/{{productId}}/images",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "displayOrder",
+                  "value": "1",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "image",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.image?.id || json.data?.productImage?.id;",
+                  "if (value) pm.collectionVariables.set(\"productImageId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Update Product Image",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/admin/products/images/{{productImageId}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "displayOrder",
+                  "value": "2",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "image",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Product Image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/products/images/{{productImageId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Books",
+      "item": [
+        {
+          "name": "List Book Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/book-categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Book Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/book-categories/{{bookCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Book Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/book-categories",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameAr\": \"كتب التنمية\",\n  \"nameEn\": \"Self Development\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.category?.id || json.data?.bookCategory?.id;",
+                  "if (value) pm.collectionVariables.set(\"bookCategoryId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Book Category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/book-categories/{{bookCategoryId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEn\": \"Updated Books\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Book Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/book-categories/{{bookCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "List Books",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/books"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Book By Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/books/slug/{{bookSlug}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Book By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/books/{{bookId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Book",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/books",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "categoryId",
+                  "value": "{{bookCategoryId}}",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "titleAr",
+                  "value": "كتاب تجريبي",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "titleEn",
+                  "value": "Sample Book",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "slug",
+                  "value": "{{bookSlug}}",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "descriptionAr",
+                  "value": "وصف الكتاب",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "descriptionEn",
+                  "value": "Book description",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "priceEGP",
+                  "value": "250",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "priceUSD",
+                  "value": "10",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "discountPriceEGP",
+                  "value": "200",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "discountPriceUSD",
+                  "value": "8",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "isFeatured",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "isHomeDisplay",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "coverImage",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.book?.id;",
+                  "if (value) pm.collectionVariables.set(\"bookId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Book",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/books/{{bookId}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "titleEn",
+                  "value": "Updated Book",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "coverImage",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Book",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/books/{{bookId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Book Images",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/books/{{bookId}}/images",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "displayOrder",
+                  "value": "0",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "images",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Book Image",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/books/images/{{bookImageId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayOrder\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Book Image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/books/images/{{bookImageId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Book Format",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/books/{{bookId}}/formats",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "formatType",
+                  "value": "Physical",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "sku",
+                  "value": "BOOK-PHY-001",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "stock",
+                  "value": "10",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "weight",
+                  "value": "0.50",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "priceEGP",
+                  "value": "250",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "priceUSD",
+                  "value": "10",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "readerFile",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                },
+                {
+                  "key": "audioFile",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.format?.id || json.data?.bookFormat?.id;",
+                  "if (value) pm.collectionVariables.set(\"bookFormatId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Book Format",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/books/formats/{{bookFormatId}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "stock",
+                  "value": "20",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "priceEGP",
+                  "value": "275",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "readerFile",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                },
+                {
+                  "key": "audioFile",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Book Format",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/books/formats/{{bookFormatId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Articles",
+      "item": [
+        {
+          "name": "List Article Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/article-categories?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "List Article Tags",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/article-tags?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "List Articles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/articles?page=1&limit=20&lang=en&categoryId={{articleCategoryId}}&tagId={{articleTagId}}&search=&isFeatured=true&isHomeDisplay=true"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Article By Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/articles/slug/{{articleSlug}}?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Article By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/articles/{{articleId}}?lang=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Article Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/article-categories",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameAr\": \"تصنيف المقالات\",\n  \"nameEn\": \"Articles Category\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.category?.id;",
+                  "if (value) pm.collectionVariables.set(\"articleCategoryId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Article Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/article-categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Article Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/article-categories/{{articleCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Article Category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/article-categories/{{articleCategoryId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEn\": \"Updated Articles Category\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Article Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/article-categories/{{articleCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Article Tag",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/article-tags",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameAr\": \"وسم\",\n  \"nameEn\": \"Tag\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.tag?.id;",
+                  "if (value) pm.collectionVariables.set(\"articleTagId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Article Tags",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/article-tags"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Article Tag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/article-tags/{{articleTagId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Article Tag",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/article-tags/{{articleTagId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEn\": \"Updated Tag\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Article Tag",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/article-tags/{{articleTagId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Article",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/admin/articles",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "categoryId",
+                  "value": "{{articleCategoryId}}",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "tagIds",
+                  "value": "{{articleTagId}}",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "titleAr",
+                  "value": "مقال تجريبي",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "titleEn",
+                  "value": "Sample Article",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "slug",
+                  "value": "{{articleSlug}}",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "shortContentAr",
+                  "value": "وصف قصير",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "shortContentEn",
+                  "value": "Short description",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "contentAr",
+                  "value": "محتوى المقال",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "contentEn",
+                  "value": "Article content",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "isFeatured",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "isHomeDisplay",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "coverImage",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.article?.id;",
+                  "if (value) pm.collectionVariables.set(\"articleId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Articles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/articles?page=1&limit=20&categoryId={{articleCategoryId}}&tagId={{articleTagId}}&search=&isActive=true&isFeatured=true&isHomeDisplay=true"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Article",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/articles/{{articleId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Article",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/admin/articles/{{articleId}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "titleEn",
+                  "value": "Updated Article",
+                  "type": "text",
+                  "disabled": false
+                },
+                {
+                  "key": "coverImage",
+                  "value": "",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Article",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/articles/{{articleId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        {
+          "name": "List Courses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/courses?page=1&limit=20&search=&categoryId={{courseCategoryId}}&isFeatured=true"
+          },
+          "response": []
+        },
+        {
+          "name": "List Home Courses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/courses/home"
+          },
+          "response": []
+        },
+        {
+          "name": "List Featured Courses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/courses/featured"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Course",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/courses/{{courseId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Course Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/course-categories",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameAr\": \"تصنيف كورسات\",\n  \"nameEn\": \"Course Category\",\n  \"image\": \"/uploads/sample.png\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.category?.id;",
+                  "if (value) pm.collectionVariables.set(\"courseCategoryId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Course Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/course-categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Course Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/course-categories/{{courseCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Course Category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/course-categories/{{courseCategoryId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEn\": \"Updated Course Category\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Course Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/course-categories/{{courseCategoryId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/courses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"{{courseCategoryId}}\",\n  \"titleAr\": \"كورس تجريبي\",\n  \"titleEn\": \"Sample Course\",\n  \"shortDescriptionAr\": \"وصف قصير\",\n  \"shortDescriptionEn\": \"Short description\",\n  \"descriptionAr\": \"وصف كامل\",\n  \"descriptionEn\": \"Full description\",\n  \"thumbnailImage\": \"/uploads/sample.png\",\n  \"promoVideoUrl\": \"https://example.com/video.mp4\",\n  \"priceEGP\": 1200,\n  \"priceUSD\": 40,\n  \"discountPriceEGP\": 950,\n  \"discountPriceUSD\": 30,\n  \"certificateEnabled\": true,\n  \"isFeatured\": true,\n  \"isHomeDisplay\": true,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.course?.id;",
+                  "if (value) pm.collectionVariables.set(\"courseId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Courses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/courses?page=1&limit=20&search=&categoryId={{courseCategoryId}}&isActive=true&isFeatured=true&isHomeDisplay=true"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Course",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/courses/{{courseId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Course",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/courses/{{courseId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titleEn\": \"Updated Course\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Course",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/courses/{{courseId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Course Section",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/courses/{{courseId}}/sections",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titleAr\": \"القسم الأول\",\n  \"titleEn\": \"Section One\",\n  \"displayOrder\": 1,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.section?.id;",
+                  "if (value) pm.collectionVariables.set(\"sectionId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Course Sections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/courses/{{courseId}}/sections"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Course Section",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/sections/{{sectionId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titleEn\": \"Updated Section\",\n  \"displayOrder\": 2,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Course Section",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/sections/{{sectionId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Lesson",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/sections/{{sectionId}}/lessons",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titleAr\": \"الدرس الأول\",\n  \"titleEn\": \"Lesson One\",\n  \"lessonType\": \"VIDEO\",\n  \"videoKey\": \"videos/lesson-one.mp4\",\n  \"videoDurationSeconds\": 600,\n  \"isPreview\": false,\n  \"displayOrder\": 1,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.lesson?.id;",
+                  "if (value) pm.collectionVariables.set(\"lessonId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Lessons",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/sections/{{sectionId}}/lessons"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Lesson",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/lessons/{{lessonId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titleEn\": \"Updated Lesson\",\n  \"displayOrder\": 2,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Lesson",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/lessons/{{lessonId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "List My Courses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/my-courses"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Course",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/my-courses/{{courseId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Course Lesson",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/my-courses/{{courseId}}/lessons/{{lessonId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Lesson Progress",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/my-courses/lessons/{{lessonId}}/progress",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"watchedSeconds\": 120,\n  \"completionPercentage\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Course Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/courses/{{courseId}}/reviews",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"title\": \"Great course\",\n  \"comment\": \"Very useful content.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Course Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/courses/{{courseId}}/reviews?page=1&limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Certificate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/certificates/verify/{{certificateNumber}}"
+          },
+          "response": []
+        },
+        {
+          "name": "List My Certificates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/my-certificates"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Certificate For Course",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/my-certificates/{{courseId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Add Course To Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/cart/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemType\": \"COURSE\",\n  \"itemId\": \"{{courseId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.cartItem?.id || json.data?.item?.id;",
+                  "if (value) pm.collectionVariables.set(\"cartItemId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Book Format To Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/cart/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemType\": \"BOOK\",\n  \"itemId\": \"{{bookFormatId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Product To Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/cart/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemType\": \"PRODUCT\",\n  \"itemId\": \"{{productId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/cart?currency=EGP"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Cart Item Quantity",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/cart/items/{{cartItemId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Cart Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/cart/items/{{cartItemId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/cart"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cart Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/cart/summary?currency=EGP"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Wishlist",
+      "item": [
+        {
+          "name": "Add Wishlist Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/wishlist",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemType\": \"BOOK\",\n  \"itemId\": \"{{bookId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.wishlist?.id || json.data?.item?.id;",
+                  "if (value) pm.collectionVariables.set(\"wishlistId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Wishlist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/wishlist?page=1&limit=20&itemType=BOOK"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Wishlist Item",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/wishlist/check?itemType=BOOK&itemId={{bookId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Wishlist Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/wishlist/{{wishlistId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create Order From Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingAddressId\": \"{{addressId}}\",\n  \"notes\": \"Deliver after 5 PM.\",\n  \"couponId\": \"{{couponId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.order?.id;",
+                  "if (value) pm.collectionVariables.set(\"orderId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List My Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders?page=1&limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{orderId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel My Order",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{orderId}}/cancel"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin List Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/orders?page=1&limit=20&status=PENDING&paymentStatus=PENDING&userId={{userId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/orders/{{orderId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Order Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/orders/{{orderId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PAID\",\n  \"paymentStatus\": \"PAID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Fawry Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/payments/fawry/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Fawry Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/payments/fawry/webhook",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"c72827d084ea4b88949d91dd2db4996e\",\n  \"fawryRefNumber\": \"963455678\",\n  \"merchantRefNumber\": \"DS-2026-000001\",\n  \"paymentAmount\": \"1900.00\",\n  \"orderAmount\": \"1900.00\",\n  \"orderStatus\": \"PAID\",\n  \"paymentMethod\": \"PAYATFAWRY\",\n  \"paymentRefrenceNumber\": \"369552233\",\n  \"paymentTime\": \"1676356569911\",\n  \"messageSignature\": \"replace-with-fawry-message-signature\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fawry Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/payments/fawry/status/{{orderId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Fawry Payment",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/payments/fawry/cancel/{{orderId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create PayPal Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/payments/paypal/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PayPal Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/payments/paypal/webhook",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"WH-123\",\n  \"event_type\": \"CHECKOUT.ORDER.APPROVED\",\n  \"resource\": {\n    \"id\": \"PAYPAL_ORDER_ID\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get PayPal Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/payments/paypal/status/{{orderId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Coupons",
+      "item": [
+        {
+          "name": "Validate Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/coupons/validate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{couponCode}}\",\n  \"orderId\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Apply Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/coupons/apply",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{couponCode}}\",\n  \"orderId\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Coupon",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/coupons/remove/{{orderId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Create Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/coupons",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{couponCode}}\",\n  \"name\": \"Welcome discount\",\n  \"description\": \"Ten percent discount.\",\n  \"type\": \"PERCENTAGE\",\n  \"value\": 10,\n  \"minimumOrderAmount\": 500,\n  \"maximumDiscountAmount\": 250,\n  \"usageLimit\": 100,\n  \"startsAt\": \"2026-06-08T00:00:00.000Z\",\n  \"expiresAt\": \"2026-07-08T00:00:00.000Z\",\n  \"isReferralCoupon\": false,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.coupon?.id;",
+                  "if (value) pm.collectionVariables.set(\"couponId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Coupons",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/coupons?page=1&limit=20&search=&type=PERCENTAGE&isActive=true&isReferralCoupon=false"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Coupon",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/coupons/{{couponId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Update Coupon",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/coupons/{{couponId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated coupon\",\n  \"value\": 15,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Delete Coupon",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/coupons/{{couponId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Referrals",
+      "item": [
+        {
+          "name": "Get My Referral Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/referrals/my-code"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Referrals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/referrals/my-referrals?page=1&limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "Apply Referral Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/referrals/apply-code",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"referralCode\": \"{{referralCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin List Referrals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/referrals?page=1&limit=20&referrerUserId={{userId}}&referredUserId={{userId}}&isRewarded=false"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Referral",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/referrals/{{referralId}}"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

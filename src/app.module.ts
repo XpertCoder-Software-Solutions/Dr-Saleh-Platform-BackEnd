@@ -11,18 +11,27 @@ import appConfig, { AppConfig } from './config/app.config';
 import { ArticlesModule } from './articles/articles.module';
 import { AuthModule } from './auth/auth.module';
 import { BooksModule } from './books/books.module';
+import { CartModule } from './cart/cart.module';
 import { ConsultationsModule } from './consultations/consultations.module';
 import { ContactUsModule } from './contact-us/contact-us.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { CoursesModule } from './courses/courses.module';
 import corsConfig from './config/cors.config';
 import databaseConfig from './config/database.config';
 import { validateEnv } from './config/env.validation';
+import fawryConfig from './config/fawry.config';
 import jwtConfig, { JwtConfig } from './config/jwt.config';
+import paypalConfig from './config/paypal.config';
+import referralConfig from './config/referral.config';
 import redisConfig, { RedisConfig } from './config/redis.config';
 import s3Config from './config/s3.config';
 import { PrismaModule } from './database/prisma.module';
 import { HealthModule } from './health/health.module';
 import { LocationsModule } from './locations/locations.module';
+import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
 import { ProductsModule } from './products/products.module';
+import { ReferralsModule } from './referrals/referrals.module';
 import { UsersModule } from './users/users.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 
@@ -39,6 +48,9 @@ import { WishlistModule } from './wishlist/wishlist.module';
         corsConfig,
         redisConfig,
         s3Config,
+        fawryConfig,
+        paypalConfig,
+        referralConfig,
       ],
       validate: validateEnv,
     }),
@@ -92,12 +104,18 @@ import { WishlistModule } from './wishlist/wishlist.module';
     AuthModule,
     ArticlesModule,
     BooksModule,
+    CartModule,
     ConsultationsModule,
     ContactUsModule,
+    CouponsModule,
+    CoursesModule,
     ProductsModule,
     UsersModule,
     WishlistModule,
     LocationsModule,
+    OrdersModule,
+    PaymentsModule,
+    ReferralsModule,
     HealthModule,
   ],
   providers: [

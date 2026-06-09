@@ -1,73 +1,97 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
-import { trimString } from '../../auth/dto/dto-transformers';
+import { toOptionalBoolean, trimString } from './dto-transformers';
 
 export class CreateUserAddressDto {
+  @ApiProperty({ example: 'Ahmed Saleh', maxLength: 150 })
+  @Transform(trimString)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(150)
+  fullName: string;
+
+  @ApiProperty({ example: '+201001234567', maxLength: 32 })
+  @Transform(trimString)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(32)
+  phoneNumber: string;
+
   @ApiProperty({
-    example: '7cb9f85b-420f-4f4e-9330-85ab0675df90',
-    description: 'Country UUID.',
+    example: '8f5a18d9-fc08-4c25-b181-2c48108a5332',
+    description: 'Active governorate UUID used to calculate shipping cost.',
   })
   @Transform(trimString)
   @IsUUID()
-  countryId: string;
+  governorateId: string;
 
-  @ApiProperty({
-    example: '45f51dd5-497c-4e70-b258-2120a6970d7d',
-    description: 'City UUID.',
+  @ApiProperty({ example: 'Nasr City', maxLength: 120 })
+  @Transform(trimString)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  city: string;
+
+  @ApiProperty({ example: 'Makram Ebeid Street', maxLength: 200 })
+  @Transform(trimString)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  street: string;
+
+  @ApiProperty({ example: '12B', maxLength: 50 })
+  @Transform(trimString)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  buildingNumber: string;
+
+  @ApiPropertyOptional({ example: '3', maxLength: 50 })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  floor?: string;
+
+  @ApiPropertyOptional({ example: '8', maxLength: 50 })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  apartment?: string;
+
+  @ApiPropertyOptional({
+    example: 'Near the main pharmacy',
+    maxLength: 250,
   })
   @Transform(trimString)
-  @IsUUID()
-  cityId: string;
-
-  @ApiProperty({ example: 'Nasr City' })
-  @Transform(trimString)
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  state: string;
+  @MaxLength(250)
+  landmark?: string;
 
-  @ApiProperty({ example: 'Street 1, Building 10' })
-  @Transform(trimString)
-  @IsString()
-  @IsNotEmpty()
-  addressLine1: string;
-
-  @ApiPropertyOptional({ example: 'Floor 3, Apartment 5' })
+  @ApiPropertyOptional({ example: 'Call before arrival', maxLength: 1000 })
   @Transform(trimString)
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  addressLine2?: string;
-
-  @ApiPropertyOptional({ example: '11765' })
-  @Transform(trimString)
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  postalCode?: string;
-
-  @ApiPropertyOptional({ example: 30.0444 })
-  @Type(() => Number)
-  @IsOptional()
-  @IsNumber()
-  latitude?: number;
-
-  @ApiPropertyOptional({ example: 31.2357 })
-  @Type(() => Number)
-  @IsOptional()
-  @IsNumber()
-  longitude?: number;
-
-  @ApiPropertyOptional({ example: 'Call before arrival' })
-  @Transform(trimString)
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
+  @MaxLength(1000)
   notes?: string;
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

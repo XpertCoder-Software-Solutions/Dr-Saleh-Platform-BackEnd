@@ -1,8 +1,10 @@
 const nodeEnvironments = ['development', 'test', 'production'] as const;
 const logLevels = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const;
+const referralRewardTypes = ['PERCENTAGE', 'FIXED_AMOUNT'] as const;
 
 type NodeEnv = (typeof nodeEnvironments)[number];
 type LogLevel = (typeof logLevels)[number];
+type ReferralRewardType = (typeof referralRewardTypes)[number];
 
 export type ValidatedEnvironment = {
   NODE_ENV: NodeEnv;
@@ -32,12 +34,24 @@ export type ValidatedEnvironment = {
   REDIS_TLS: string;
   REDIS_USERNAME?: string;
   REDIS_PASSWORD?: string;
-  S3_REGION?: string;
-  S3_BUCKET?: string;
-  S3_ACCESS_KEY_ID?: string;
-  S3_SECRET_ACCESS_KEY?: string;
-  S3_ENDPOINT?: string;
-  S3_FORCE_PATH_STYLE?: string;
+  AWS_REGION?: string;
+  AWS_S3_BUCKET_NAME?: string;
+  AWS_ACCESS_KEY_ID?: string;
+  AWS_SECRET_ACCESS_KEY?: string;
+  AWS_S3_ENDPOINT?: string;
+  AWS_S3_FORCE_PATH_STYLE?: string;
+  FAWRY_BASE_URL?: string;
+  FAWRY_MERCHANT_CODE?: string;
+  FAWRY_SECURITY_KEY?: string;
+  FAWRY_RETURN_URL?: string;
+  FAWRY_NOTIFICATION_URL?: string;
+  PAYPAL_CLIENT_ID?: string;
+  PAYPAL_CLIENT_SECRET?: string;
+  PAYPAL_BASE_URL?: string;
+  PAYPAL_WEBHOOK_ID?: string;
+  REFERRAL_REWARD_TYPE: ReferralRewardType;
+  REFERRAL_REWARD_VALUE: string;
+  REFERRAL_COUPON_EXPIRES_DAYS: string;
 };
 
 export function validateEnv(
@@ -149,6 +163,49 @@ export function validateEnv(
     errors.push('CORS_ALLOWED_ORIGINS is required in production.');
   }
 
+  const fawryBaseUrl = optionalString(config.FAWRY_BASE_URL);
+  const fawryReturnUrl = optionalString(config.FAWRY_RETURN_URL);
+  const fawryNotificationUrl = optionalString(config.FAWRY_NOTIFICATION_URL);
+
+  if (fawryBaseUrl.length > 0 && !isUrlLike(fawryBaseUrl)) {
+    errors.push('FAWRY_BASE_URL must be a valid URL.');
+  }
+
+  if (fawryReturnUrl.length > 0 && !isUrlLike(fawryReturnUrl)) {
+    errors.push('FAWRY_RETURN_URL must be a valid URL.');
+  }
+
+  if (fawryNotificationUrl.length > 0 && !isUrlLike(fawryNotificationUrl)) {
+    errors.push('FAWRY_NOTIFICATION_URL must be a valid URL.');
+  }
+
+  const paypalBaseUrl = optionalString(config.PAYPAL_BASE_URL);
+
+  if (paypalBaseUrl.length > 0 && !isUrlLike(paypalBaseUrl)) {
+    errors.push('PAYPAL_BASE_URL must be a valid URL.');
+  }
+
+  const referralRewardType = toEnum(
+    'REFERRAL_REWARD_TYPE',
+    config.REFERRAL_REWARD_TYPE,
+    referralRewardTypes,
+    'PERCENTAGE',
+    errors,
+  );
+  const referralRewardValue = positiveDecimalString(
+    'REFERRAL_REWARD_VALUE',
+    config.REFERRAL_REWARD_VALUE,
+    10,
+    errors,
+  );
+
+  if (
+    referralRewardType === 'PERCENTAGE' &&
+    Number(referralRewardValue) > 100
+  ) {
+    errors.push('REFERRAL_REWARD_VALUE must be at most 100 for PERCENTAGE.');
+  }
+
   const validatedEnvironment: ValidatedEnvironment = {
     NODE_ENV: nodeEnv,
     PORT: toIntegerString('PORT', config.PORT, 3000, 1, 65_535, errors),
@@ -205,12 +262,35 @@ export function validateEnv(
     REDIS_TLS: toBooleanString(config.REDIS_TLS, false, errors),
     REDIS_USERNAME: optionalString(config.REDIS_USERNAME),
     REDIS_PASSWORD: optionalString(config.REDIS_PASSWORD),
-    S3_REGION: optionalString(config.S3_REGION),
-    S3_BUCKET: optionalString(config.S3_BUCKET),
-    S3_ACCESS_KEY_ID: optionalString(config.S3_ACCESS_KEY_ID),
-    S3_SECRET_ACCESS_KEY: optionalString(config.S3_SECRET_ACCESS_KEY),
-    S3_ENDPOINT: optionalString(config.S3_ENDPOINT),
-    S3_FORCE_PATH_STYLE: optionalString(config.S3_FORCE_PATH_STYLE),
+    AWS_REGION: optionalString(config.AWS_REGION),
+    AWS_S3_BUCKET_NAME: optionalString(config.AWS_S3_BUCKET_NAME),
+    AWS_ACCESS_KEY_ID: optionalString(config.AWS_ACCESS_KEY_ID),
+    AWS_SECRET_ACCESS_KEY: optionalString(config.AWS_SECRET_ACCESS_KEY),
+    AWS_S3_ENDPOINT: optionalString(config.AWS_S3_ENDPOINT),
+    AWS_S3_FORCE_PATH_STYLE: toBooleanString(
+      config.AWS_S3_FORCE_PATH_STYLE,
+      false,
+      errors,
+    ),
+    FAWRY_BASE_URL: fawryBaseUrl,
+    FAWRY_MERCHANT_CODE: optionalString(config.FAWRY_MERCHANT_CODE),
+    FAWRY_SECURITY_KEY: optionalString(config.FAWRY_SECURITY_KEY),
+    FAWRY_RETURN_URL: fawryReturnUrl,
+    FAWRY_NOTIFICATION_URL: fawryNotificationUrl,
+    PAYPAL_CLIENT_ID: optionalString(config.PAYPAL_CLIENT_ID),
+    PAYPAL_CLIENT_SECRET: optionalString(config.PAYPAL_CLIENT_SECRET),
+    PAYPAL_BASE_URL: paypalBaseUrl,
+    PAYPAL_WEBHOOK_ID: optionalString(config.PAYPAL_WEBHOOK_ID),
+    REFERRAL_REWARD_TYPE: referralRewardType,
+    REFERRAL_REWARD_VALUE: referralRewardValue,
+    REFERRAL_COUPON_EXPIRES_DAYS: toIntegerString(
+      'REFERRAL_COUPON_EXPIRES_DAYS',
+      config.REFERRAL_COUPON_EXPIRES_DAYS,
+      30,
+      1,
+      3650,
+      errors,
+    ),
   };
 
   if (errors.length > 0) {
@@ -268,6 +348,23 @@ function toIntegerString(
     numberValue > max
   ) {
     errors.push(`${name} must be an integer between ${min} and ${max}.`);
+    return String(defaultValue);
+  }
+
+  return String(numberValue);
+}
+
+function positiveDecimalString(
+  name: string,
+  value: unknown,
+  defaultValue: number,
+  errors: string[],
+): string {
+  const rawValue = optionalString(value, String(defaultValue));
+  const numberValue = Number(rawValue);
+
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    errors.push(`${name} must be a positive number.`);
     return String(defaultValue);
   }
 

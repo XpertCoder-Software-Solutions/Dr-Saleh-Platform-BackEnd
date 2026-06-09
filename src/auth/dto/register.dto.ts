@@ -1,7 +1,19 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
-import { normalizeEmail, trimString } from './dto-transformers';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import {
+  normalizeEmail,
+  normalizeReferralCode,
+  trimString,
+} from './dto-transformers';
 
 export class RegisterDto {
   @ApiProperty({
@@ -40,4 +52,16 @@ export class RegisterDto {
   @IsNotEmpty()
   @MinLength(8)
   password: string;
+
+  @ApiPropertyOptional({
+    example: 'ABC123',
+    maxLength: 64,
+    description: 'Optional referral code shared by another user.',
+  })
+  @Transform(normalizeReferralCode)
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Matches(/^[A-Z0-9_-]+$/)
+  referralCode?: string;
 }

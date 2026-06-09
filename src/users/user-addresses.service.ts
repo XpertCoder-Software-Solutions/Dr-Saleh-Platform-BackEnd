@@ -8,36 +8,32 @@ import { PrismaService } from '../database/prisma.service';
 import { CreateUserAddressDto } from './dto/create-user-address.dto';
 import { UpdateUserAddressDto } from './dto/update-user-address.dto';
 
+const addressGovernorateSelect = {
+  id: true,
+  nameAr: true,
+  nameEn: true,
+  shippingCost: true,
+  isActive: true,
+} satisfies Prisma.GovernorateSelect;
+
 const addressSelect = {
   id: true,
   userId: true,
-  countryId: true,
-  cityId: true,
-  state: true,
-  addressLine1: true,
-  addressLine2: true,
-  postalCode: true,
-  latitude: true,
-  longitude: true,
+  fullName: true,
+  phoneNumber: true,
+  governorateId: true,
+  city: true,
+  street: true,
+  buildingNumber: true,
+  floor: true,
+  apartment: true,
+  landmark: true,
   notes: true,
+  isActive: true,
   createdAt: true,
   updatedAt: true,
-  addressCountry: {
-    select: {
-      id: true,
-      nameAr: true,
-      nameEn: true,
-      isoCode: true,
-      phoneCode: true,
-      currencyCode: true,
-    },
-  },
-  addressCity: {
-    select: {
-      id: true,
-      nameAr: true,
-      nameEn: true,
-    },
+  governorate: {
+    select: addressGovernorateSelect,
   },
 } satisfies Prisma.UserAddressSelect;
 
@@ -45,85 +41,64 @@ type AddressRecord = Prisma.UserAddressGetPayload<{
   select: typeof addressSelect;
 }>;
 
-type LocationPair = {
-  country: {
-    id: string;
-    nameAr: string;
-    nameEn: string;
-    isoCode: string;
-  };
-  city: {
-    id: string;
-    countryId: string;
-    nameAr: string;
-    nameEn: string;
-  };
-};
+type GovernorateRecord = Prisma.GovernorateGetPayload<{
+  select: typeof addressGovernorateSelect;
+}>;
 
 @Injectable()
 export class UserAddressesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(userId: string): Promise<ReturnType<typeof this.toAddress>[]> {
+  async findAll(userId: string) {
     const addresses = await this.prisma.userAddress.findMany({
-      where: { userId },
+      where: {
+        userId,
+        isActive: true,
+      },
       select: addressSelect,
       orderBy: { createdAt: 'desc' },
     });
 
-    return addresses.map((address) => this.toAddress(address));
+    return {
+      message: 'Addresses returned successfully',
+      data: {
+        addresses: addresses.map((address) => this.toAddress(address)),
+      },
+    };
   }
 
-  async findOne(
-    userId: string,
-    addressId: string,
-  ): Promise<ReturnType<typeof this.toAddress>> {
-    const address = await this.findOwnedAddressOrThrow(userId, addressId);
+  async findOne(userId: string, addressId: string) {
+    const address = await this.findOwnedActiveAddressOrThrow(userId, addressId);
 
-    return this.toAddress(address);
+    return {
+      message: 'Address returned successfully',
+      data: {
+        address: this.toAddress(address),
+      },
+    };
   }
 
-  async create(
-    userId: string,
-    createUserAddressDto: CreateUserAddressDto,
-  ): Promise<{
-    message: string;
-    data: { address: ReturnType<typeof this.toAddress> };
-  }> {
-    const [user, location] = await Promise.all([
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          fullName: true,
-          phoneNumber: true,
-        },
-      }),
-      this.validateLocationPair(
-        createUserAddressDto.countryId,
-        createUserAddressDto.cityId,
-      ),
-    ]);
-
-    if (!user) {
-      throw new NotFoundException('User not found.');
-    }
+  async create(userId: string, createUserAddressDto: CreateUserAddressDto) {
+    const governorate = await this.validateGovernorate(
+      createUserAddressDto.governorateId,
+    );
 
     const address = await this.prisma.userAddress.create({
       data: {
         userId,
-        countryId: location.country.id,
-        cityId: location.city.id,
-        state: createUserAddressDto.state,
-        addressLine1: createUserAddressDto.addressLine1,
-        addressLine2: createUserAddressDto.addressLine2,
-        postalCode: createUserAddressDto.postalCode,
-        latitude: createUserAddressDto.latitude,
-        longitude: createUserAddressDto.longitude,
+        fullName: createUserAddressDto.fullName,
+        phoneNumber: createUserAddressDto.phoneNumber,
+        governorateId: governorate.id,
+        city: createUserAddressDto.city,
+        street: createUserAddressDto.street,
+        buildingNumber: createUserAddressDto.buildingNumber,
+        floor: createUserAddressDto.floor,
+        apartment: createUserAddressDto.apartment,
+        landmark: createUserAddressDto.landmark,
         notes: createUserAddressDto.notes,
-        fullName: user.fullName,
-        phoneNumber: user.phoneNumber,
-        city: location.city.nameEn,
-        country: location.country.isoCode,
+        isActive: createUserAddressDto.isActive ?? true,
+        state: createUserAddressDto.city,
+        addressLine1: createUserAddressDto.street,
       },
       select: addressSelect,
     });
@@ -140,70 +115,65 @@ export class UserAddressesService {
     userId: string,
     addressId: string,
     updateUserAddressDto: UpdateUserAddressDto,
-  ): Promise<{
-    message: string;
-    data: { address: ReturnType<typeof this.toAddress> };
-  }> {
-    const existingAddress = await this.prisma.userAddress.findFirst({
-      where: {
-        id: addressId,
-        userId,
-      },
-      select: {
-        id: true,
-        countryId: true,
-        cityId: true,
-      },
-    });
-
-    if (!existingAddress) {
-      throw new NotFoundException('Address not found.');
+  ) {
+    if (!this.hasProvidedFields(updateUserAddressDto)) {
+      throw new BadRequestException(
+        'Provide at least one address field to update.',
+      );
     }
 
-    const countryId =
-      updateUserAddressDto.countryId ?? existingAddress.countryId;
-    const cityId = updateUserAddressDto.cityId ?? existingAddress.cityId;
-    const shouldValidateLocation =
-      updateUserAddressDto.countryId !== undefined ||
-      updateUserAddressDto.cityId !== undefined;
-    const location = shouldValidateLocation
-      ? await this.validateLocationPair(countryId, cityId)
-      : null;
+    await this.findOwnedActiveAddressOrThrow(userId, addressId);
+
     const data: Prisma.UserAddressUpdateInput = {};
 
-    if (location) {
-      data.addressCountry = { connect: { id: location.country.id } };
-      data.addressCity = { connect: { id: location.city.id } };
-      data.country = location.country.isoCode;
-      data.city = location.city.nameEn;
+    if (updateUserAddressDto.governorateId !== undefined) {
+      const governorate = await this.validateGovernorate(
+        updateUserAddressDto.governorateId,
+      );
+
+      data.governorate = { connect: { id: governorate.id } };
     }
 
-    if (updateUserAddressDto.state !== undefined) {
-      data.state = updateUserAddressDto.state;
+    if (updateUserAddressDto.fullName !== undefined) {
+      data.fullName = updateUserAddressDto.fullName;
     }
 
-    if (updateUserAddressDto.addressLine1 !== undefined) {
-      data.addressLine1 = updateUserAddressDto.addressLine1;
+    if (updateUserAddressDto.phoneNumber !== undefined) {
+      data.phoneNumber = updateUserAddressDto.phoneNumber;
     }
 
-    if (updateUserAddressDto.addressLine2 !== undefined) {
-      data.addressLine2 = updateUserAddressDto.addressLine2;
+    if (updateUserAddressDto.city !== undefined) {
+      data.city = updateUserAddressDto.city;
+      data.state = updateUserAddressDto.city;
     }
 
-    if (updateUserAddressDto.postalCode !== undefined) {
-      data.postalCode = updateUserAddressDto.postalCode;
+    if (updateUserAddressDto.street !== undefined) {
+      data.street = updateUserAddressDto.street;
+      data.addressLine1 = updateUserAddressDto.street;
     }
 
-    if (updateUserAddressDto.latitude !== undefined) {
-      data.latitude = updateUserAddressDto.latitude;
+    if (updateUserAddressDto.buildingNumber !== undefined) {
+      data.buildingNumber = updateUserAddressDto.buildingNumber;
     }
 
-    if (updateUserAddressDto.longitude !== undefined) {
-      data.longitude = updateUserAddressDto.longitude;
+    if (updateUserAddressDto.floor !== undefined) {
+      data.floor = updateUserAddressDto.floor;
+    }
+
+    if (updateUserAddressDto.apartment !== undefined) {
+      data.apartment = updateUserAddressDto.apartment;
+    }
+
+    if (updateUserAddressDto.landmark !== undefined) {
+      data.landmark = updateUserAddressDto.landmark;
     }
 
     if (updateUserAddressDto.notes !== undefined) {
       data.notes = updateUserAddressDto.notes;
+    }
+
+    if (updateUserAddressDto.isActive !== undefined) {
+      data.isActive = updateUserAddressDto.isActive;
     }
 
     const address = await this.prisma.userAddress.update({
@@ -224,20 +194,15 @@ export class UserAddressesService {
     userId: string,
     addressId: string,
   ): Promise<{ message: string; data: Record<string, never> }> {
-    const existingAddress = await this.prisma.userAddress.findFirst({
-      where: {
-        id: addressId,
-        userId,
-      },
+    const existingAddress = await this.findOwnedActiveAddressOrThrow(
+      userId,
+      addressId,
+    );
+
+    await this.prisma.userAddress.update({
+      where: { id: existingAddress.id },
+      data: { isActive: false },
       select: { id: true },
-    });
-
-    if (!existingAddress) {
-      throw new NotFoundException('Address not found.');
-    }
-
-    await this.prisma.userAddress.delete({
-      where: { id: addressId },
     });
 
     return {
@@ -246,7 +211,7 @@ export class UserAddressesService {
     };
   }
 
-  private async findOwnedAddressOrThrow(
+  private async findOwnedActiveAddressOrThrow(
     userId: string,
     addressId: string,
   ): Promise<AddressRecord> {
@@ -254,6 +219,7 @@ export class UserAddressesService {
       where: {
         id: addressId,
         userId,
+        isActive: true,
       },
       select: addressSelect,
     });
@@ -265,74 +231,61 @@ export class UserAddressesService {
     return address;
   }
 
-  private async validateLocationPair(
-    countryId: string,
-    cityId: string,
-  ): Promise<LocationPair> {
-    const country = await this.prisma.country.findFirst({
+  private async validateGovernorate(id: string): Promise<GovernorateRecord> {
+    const governorate = await this.prisma.governorate.findFirst({
       where: {
-        id: countryId,
+        id,
         isActive: true,
       },
-      select: {
-        id: true,
-        nameAr: true,
-        nameEn: true,
-        isoCode: true,
-      },
+      select: addressGovernorateSelect,
     });
 
-    if (!country) {
-      throw new BadRequestException('Country does not exist or is inactive.');
-    }
-
-    const city = await this.prisma.city.findFirst({
-      where: {
-        id: cityId,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        countryId: true,
-        nameAr: true,
-        nameEn: true,
-      },
-    });
-
-    if (!city) {
-      throw new BadRequestException('City does not exist or is inactive.');
-    }
-
-    if (city.countryId !== country.id) {
+    if (!governorate) {
       throw new BadRequestException(
-        'City does not belong to the selected country.',
+        'Governorate does not exist or is inactive.',
       );
     }
 
-    return { country, city };
+    return governorate;
   }
 
   private toAddress(address: AddressRecord) {
     return {
       id: address.id,
       userId: address.userId,
-      countryId: address.countryId,
-      cityId: address.cityId,
-      state: address.state,
-      addressLine1: address.addressLine1,
-      addressLine2: address.addressLine2,
-      postalCode: address.postalCode,
-      latitude:
-        address.latitude === null ? null : Number(address.latitude.toString()),
-      longitude:
-        address.longitude === null
-          ? null
-          : Number(address.longitude.toString()),
+      fullName: address.fullName,
+      phoneNumber: address.phoneNumber,
+      governorateId: address.governorateId,
+      city: address.city,
+      street: address.street,
+      buildingNumber: address.buildingNumber,
+      floor: address.floor,
+      apartment: address.apartment,
+      landmark: address.landmark,
       notes: address.notes,
-      country: address.addressCountry,
-      city: address.addressCity,
+      isActive: address.isActive,
+      governorate:
+        address.governorate === null
+          ? null
+          : {
+              id: address.governorate.id,
+              nameAr: address.governorate.nameAr,
+              nameEn: address.governorate.nameEn,
+              shippingCost: this.toNumberFromDecimal(
+                address.governorate.shippingCost,
+              ),
+              isActive: address.governorate.isActive,
+            },
       createdAt: address.createdAt,
       updatedAt: address.updatedAt,
     };
+  }
+
+  private toNumberFromDecimal(decimal: Prisma.Decimal): number {
+    return Number(decimal.toString());
+  }
+
+  private hasProvidedFields(dto: object): boolean {
+    return Object.values(dto).some((value) => value !== undefined);
   }
 }

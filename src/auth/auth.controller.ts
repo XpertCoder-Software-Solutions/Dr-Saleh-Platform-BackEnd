@@ -64,6 +64,7 @@ export class AuthController {
             fullName: 'Ahmed Saleh',
             email: 'ahmed@example.com',
             phoneNumber: '+201001234567',
+            referralCode: 'ABC123',
             isEmailVerified: false,
           },
         },
@@ -72,8 +73,10 @@ export class AuthController {
   })
   @ApiBadRequestResponse({ description: 'Invalid request body.' })
   @ApiConflictResponse({
-    description: 'Email or phone number is already registered.',
+    description:
+      'Email, phone number, or generated referral code already conflicts.',
   })
+  @ApiNotFoundResponse({ description: 'Referral code not found.' })
   @ApiInternalServerErrorResponse({
     description: 'Default user role is not configured.',
   })

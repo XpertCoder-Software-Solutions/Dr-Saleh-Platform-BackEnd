@@ -13,6 +13,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma, RoleName } from '@prisma/client';
+import { randomBytes } from 'crypto';
 import type { StringValue } from 'ms';
 import { PrismaService } from '../database/prisma.service';
 import { BrevoEmailService } from '../email/brevo-email.service';
@@ -37,6 +38,7 @@ const registeredUserSelect = {
   fullName: true,
   email: true,
   phoneNumber: true,
+  referralCode: true,
   isEmailVerified: true,
 } satisfies Prisma.UserSelect;
 
@@ -143,6 +145,7 @@ export class AuthService {
     const { firstName, lastName } = this.splitFullName(fullName);
     const email = this.normalizeEmail(registerDto.email);
     const phoneNumber = registerDto.phoneNumber.trim();
+    const referralCode = registerDto.referralCode;
 
     const userRole = await this.prisma.role.findUnique({
       where: { name: RoleName.User },
@@ -156,6 +159,9 @@ export class AuthService {
     }
 
     await this.ensureEmailAndPhoneAreUnique(email, phoneNumber);
+    const referrer = referralCode
+      ? await this.findReferrerByReferralCodeOrThrow(referralCode)
+      : null;
 
     const otp = this.otpService.generateNumericOtp();
     const [passwordHash, codeHash] = await Promise.all([
@@ -174,6 +180,8 @@ export class AuthService {
       codeHash,
       expiresAt: this.otpService.getEmailVerificationExpiryDate(),
       sentAt: new Date(),
+      referralCode: await this.generateUniqueReferralCode(),
+      referrer,
     });
 
     try {
@@ -618,6 +626,8 @@ export class AuthService {
     codeHash,
     expiresAt,
     sentAt,
+    referralCode,
+    referrer,
   }: {
     roleId: string;
     firstName: string;
@@ -629,30 +639,83 @@ export class AuthService {
     codeHash: string;
     expiresAt: Date;
     sentAt: Date;
+    referralCode: string;
+    referrer: { id: string; referralCode: string } | null;
   }): Promise<RegisteredUser> {
     try {
-      return await this.prisma.user.create({
-        data: {
-          roleId,
-          firstName,
-          lastName,
-          fullName,
-          email,
-          phoneNumber,
-          passwordHash,
-          isEmailVerified: false,
-          isPhoneVerified: false,
-          isActive: true,
-          emailVerificationOtpHash: codeHash,
-          emailVerificationOtpExpiresAt: expiresAt,
-          emailVerificationOtpSentAt: sentAt,
-          emailVerificationAttempts: 0,
-        },
-        select: registeredUserSelect,
+      return await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            roleId,
+            firstName,
+            lastName,
+            fullName,
+            email,
+            phoneNumber,
+            passwordHash,
+            referralCode,
+            referredByUserId: referrer?.id,
+            isEmailVerified: false,
+            isPhoneVerified: false,
+            isActive: true,
+            emailVerificationOtpHash: codeHash,
+            emailVerificationOtpExpiresAt: expiresAt,
+            emailVerificationOtpSentAt: sentAt,
+            emailVerificationAttempts: 0,
+          },
+          select: registeredUserSelect,
+        });
+
+        if (referrer) {
+          await tx.referral.create({
+            data: {
+              referrerUserId: referrer.id,
+              referredUserId: user.id,
+              referralCode: referrer.referralCode,
+            },
+          });
+        }
+
+        return user;
       });
     } catch (error) {
       this.handleUniqueConstraintError(error);
     }
+  }
+
+  private async findReferrerByReferralCodeOrThrow(referralCode: string) {
+    const referrer = await this.prisma.user.findUnique({
+      where: { referralCode },
+      select: {
+        id: true,
+        referralCode: true,
+      },
+    });
+
+    if (!referrer || !referrer.referralCode) {
+      throw new NotFoundException('Referral code not found.');
+    }
+
+    return {
+      id: referrer.id,
+      referralCode: referrer.referralCode,
+    };
+  }
+
+  private async generateUniqueReferralCode(): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const referralCode = randomBytes(4).toString('hex').toUpperCase();
+      const existingUser = await this.prisma.user.findUnique({
+        where: { referralCode },
+        select: { id: true },
+      });
+
+      if (!existingUser) {
+        return referralCode;
+      }
+    }
+
+    throw new ConflictException('Could not generate a unique referral code.');
   }
 
   private async generateAuthTokens(
@@ -766,6 +829,12 @@ export class AuthService {
 
       if (target.includes('phoneNumber')) {
         throw new ConflictException('Phone number is already registered.');
+      }
+
+      if (target.includes('referralCode')) {
+        throw new ConflictException(
+          'Could not generate a unique referral code.',
+        );
       }
 
       throw new ConflictException(

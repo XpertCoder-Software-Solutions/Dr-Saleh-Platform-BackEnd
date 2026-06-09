@@ -12,8 +12,8 @@ export class WishlistCatalogItemDto {
   })
   itemType: WishlistItemType;
 
-  @ApiProperty({ example: 'book-slug' })
-  slug: string;
+  @ApiPropertyOptional({ example: 'book-slug' })
+  slug?: string;
 
   @ApiProperty({ example: 'Arabic item name' })
   nameAr: string;
@@ -21,8 +21,8 @@ export class WishlistCatalogItemDto {
   @ApiProperty({ example: 'English item name' })
   nameEn: string;
 
-  @ApiProperty({ example: '/uploads/books/covers/book.jpg' })
-  image: string;
+  @ApiProperty({ example: '/uploads/books/covers/book.jpg', nullable: true })
+  image: string | null;
 
   @ApiProperty({ example: 1200 })
   priceEGP: number;
@@ -65,9 +65,6 @@ export class WishlistItemResponseDto {
 
   @ApiProperty({ example: '2026-06-06T12:00:00.000Z' })
   createdAt: Date;
-
-  @ApiProperty({ example: '2026-06-06T12:00:00.000Z' })
-  updatedAt: Date;
 
   @ApiProperty({ type: WishlistCatalogItemDto, nullable: true })
   item: WishlistCatalogItemDto | null;

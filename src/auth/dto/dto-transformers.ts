@@ -13,3 +13,13 @@ export const normalizeEmail = ({ value }: TransformFnParams): unknown => {
     ? rawValue.trim().toLowerCase()
     : rawValue;
 };
+
+export const normalizeReferralCode = ({
+  value,
+}: TransformFnParams): unknown => {
+  const rawValue: unknown = value;
+
+  return typeof rawValue === 'string'
+    ? rawValue.trim().toUpperCase()
+    : rawValue;
+};

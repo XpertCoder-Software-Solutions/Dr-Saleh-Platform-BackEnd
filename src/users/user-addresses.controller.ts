@@ -27,6 +27,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { CreateUserAddressDto } from './dto/create-user-address.dto';
 import { UpdateUserAddressDto } from './dto/update-user-address.dto';
+import {
+  UserAddressApiResponseDto,
+  UserAddressDeleteApiResponseDto,
+  UserAddressListApiResponseDto,
+} from './dto/user-address-response.dto';
 import { UserAddressesService } from './user-addresses.service';
 
 type AuthenticatedRequest = ExpressRequest & {
@@ -36,13 +41,16 @@ type AuthenticatedRequest = ExpressRequest & {
 @ApiTags('User Addresses')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('users/addresses')
+@Controller('addresses')
 export class UserAddressesController {
   constructor(private readonly userAddressesService: UserAddressesService) {}
 
   @Get()
   @ApiOperation({ summary: 'List current user addresses.' })
-  @ApiOkResponse({ description: 'Current user addresses returned.' })
+  @ApiOkResponse({
+    description: 'Current user addresses returned.',
+    type: UserAddressListApiResponseDto,
+  })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   findAll(@Request() request: AuthenticatedRequest) {
     return this.userAddressesService.findAll(request.user.id);
@@ -50,7 +58,10 @@ export class UserAddressesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get one current user address.' })
-  @ApiOkResponse({ description: 'Address returned.' })
+  @ApiOkResponse({
+    description: 'Address returned.',
+    type: UserAddressApiResponseDto,
+  })
   @ApiNotFoundResponse({ description: 'Address not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   findOne(
@@ -63,8 +74,13 @@ export class UserAddressesController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create an address for the current user.' })
-  @ApiCreatedResponse({ description: 'Address created successfully.' })
-  @ApiBadRequestResponse({ description: 'Invalid country, city, or body.' })
+  @ApiCreatedResponse({
+    description: 'Address created successfully.',
+    type: UserAddressApiResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid governorate or request body.',
+  })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   create(
     @Request() request: AuthenticatedRequest,
@@ -78,8 +94,13 @@ export class UserAddressesController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update one current user address.' })
-  @ApiOkResponse({ description: 'Address updated successfully.' })
-  @ApiBadRequestResponse({ description: 'Invalid country, city, or body.' })
+  @ApiOkResponse({
+    description: 'Address updated successfully.',
+    type: UserAddressApiResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid governorate, request body, or no update fields.',
+  })
   @ApiNotFoundResponse({ description: 'Address not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   update(
@@ -97,7 +118,10 @@ export class UserAddressesController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete one current user address.' })
-  @ApiOkResponse({ description: 'Address deleted successfully.' })
+  @ApiOkResponse({
+    description: 'Address deleted successfully.',
+    type: UserAddressDeleteApiResponseDto,
+  })
   @ApiNotFoundResponse({ description: 'Address not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   delete(

@@ -15,21 +15,18 @@ const wishlistSelect = {
   itemType: true,
   itemId: true,
   createdAt: true,
-  updatedAt: true,
 } satisfies Prisma.WishlistSelect;
 
 const courseSummarySelect = {
   id: true,
-  slug: true,
   titleAr: true,
   titleEn: true,
-  image: true,
-  priceEgp: true,
-  discountPriceEgp: true,
-  priceUsd: true,
-  discountPriceUsd: true,
+  thumbnailImage: true,
+  priceEGP: true,
+  discountPriceEGP: true,
+  priceUSD: true,
+  discountPriceUSD: true,
   isActive: true,
-  isDisplayed: true,
 } satisfies Prisma.CourseSelect;
 
 const bookSummarySelect = {
@@ -75,16 +72,15 @@ type ProductSummaryRecord = Prisma.ProductGetPayload<{
 type WishlistCatalogItem = {
   id: string;
   itemType: WishlistItemType;
-  slug: string;
+  slug?: string;
   nameAr: string;
   nameEn: string;
-  image: string;
+  image: string | null;
   priceEGP: number;
   discountPriceEGP: number | null;
   priceUSD: number;
   discountPriceUSD: number | null;
   isActive: boolean;
-  isDisplayed?: boolean;
   stock?: number;
 };
 
@@ -94,7 +90,6 @@ type WishlistItemResponse = {
   itemType: WishlistItemType;
   itemId: string;
   createdAt: Date;
-  updatedAt: Date;
   item: WishlistCatalogItem | null;
 };
 
@@ -246,7 +241,6 @@ export class WishlistService {
           where: {
             id: itemId,
             isActive: true,
-            isDisplayed: true,
           },
           select: { id: true },
         });
@@ -348,7 +342,6 @@ export class WishlistService {
       itemType: wishlist.itemType,
       itemId: wishlist.itemId,
       createdAt: wishlist.createdAt,
-      updatedAt: wishlist.updatedAt,
       item:
         catalogItems.get(
           this.catalogItemKey(wishlist.itemType, wishlist.itemId),
@@ -362,16 +355,14 @@ export class WishlistService {
     return {
       id: course.id,
       itemType: WishlistItemType.COURSE,
-      slug: course.slug,
       nameAr: course.titleAr,
       nameEn: course.titleEn,
-      image: course.image,
-      priceEGP: this.toNumberFromDecimal(course.priceEgp),
-      discountPriceEGP: this.toOptionalNumberOrNull(course.discountPriceEgp),
-      priceUSD: this.toNumberFromDecimal(course.priceUsd),
-      discountPriceUSD: this.toOptionalNumberOrNull(course.discountPriceUsd),
+      image: course.thumbnailImage,
+      priceEGP: this.toNumberFromDecimal(course.priceEGP),
+      discountPriceEGP: this.toOptionalNumberOrNull(course.discountPriceEGP),
+      priceUSD: this.toNumberFromDecimal(course.priceUSD),
+      discountPriceUSD: this.toOptionalNumberOrNull(course.discountPriceUSD),
       isActive: course.isActive,
-      isDisplayed: course.isDisplayed,
     };
   }
 
