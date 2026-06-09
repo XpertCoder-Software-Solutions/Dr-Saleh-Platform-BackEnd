@@ -8,6 +8,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { join } from 'path';
 import appConfig, { AppConfig } from './config/app.config';
+import { AdminManagementModule } from './admin-management/admin-management.module';
 import { ArticlesModule } from './articles/articles.module';
 import { AuthModule } from './auth/auth.module';
 import { BooksModule } from './books/books.module';
@@ -101,6 +102,7 @@ import { WishlistModule } from './wishlist/wishlist.module';
       }),
     }),
     PrismaModule,
+    AdminManagementModule,
     AuthModule,
     ArticlesModule,
     BooksModule,

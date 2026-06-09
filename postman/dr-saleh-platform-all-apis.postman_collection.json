@@ -169,6 +169,10 @@
     {
       "key": "referralCode",
       "value": "ABC123"
+    },
+    {
+      "key": "adminId",
+      "value": ""
     }
   ],
   "auth": {
@@ -499,6 +503,88 @@
             "method": "DELETE",
             "header": [],
             "url": "{{baseUrl}}/users/profile-image"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin Management",
+      "item": [
+        {
+          "name": "List Admins",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/admins?page=1&limit=20&search=&isActive=true"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Admin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/admins/{{adminId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/admins",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Admin Name\",\n  \"email\": \"new-admin@example.com\",\n  \"phoneNumber\": \"01000000000\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const value = json.data?.admin?.id;",
+                  "if (value) pm.collectionVariables.set(\"adminId\", value);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Admin",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/admins/{{adminId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"phoneNumber\": \"01000000001\",\n  \"isActive\": true,\n  \"password\": \"NewPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         }
