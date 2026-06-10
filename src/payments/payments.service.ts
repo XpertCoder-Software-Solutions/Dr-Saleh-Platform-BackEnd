@@ -19,6 +19,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { createHash, timingSafeEqual } from 'crypto';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import fawryConfig, { type FawryConfig } from '../config/fawry.config';
 import paypalConfig, { type PaypalConfig } from '../config/paypal.config';
 import { PrismaService } from '../database/prisma.service';
@@ -1945,10 +1946,7 @@ export class PaymentsService {
     error: unknown,
     message = 'Fawry payment already exists for this order.',
   ): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isPrismaUniqueConstraintError(error)) {
       throw new ConflictException(message);
     }
 

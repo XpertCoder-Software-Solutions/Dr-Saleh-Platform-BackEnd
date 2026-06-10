@@ -9,7 +9,6 @@ import {
   Patch,
   Post,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -23,9 +22,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateOrderDto } from './dto/create-order.dto';
 import {
   OrderApiResponseDto,
@@ -33,10 +31,6 @@ import {
 } from './dto/order-response.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
 import { OrdersService } from './orders.service';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -68,10 +62,10 @@ export class OrdersController {
     description: 'Already purchased item or insufficient stock.',
   })
   create(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() createOrderDto: CreateOrderDto,
   ) {
-    return this.ordersService.createFromCart(request.user.id, createOrderDto);
+    return this.ordersService.createFromCart(userId, createOrderDto);
   }
 
   @Get()
@@ -85,11 +79,8 @@ export class OrdersController {
   })
   @ApiBadRequestResponse({ description: 'Invalid pagination query.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  findAll(
-    @Request() request: AuthenticatedRequest,
-    @Query() query: OrderQueryDto,
-  ) {
-    return this.ordersService.findMyOrders(request.user.id, query);
+  findAll(@CurrentUser('id') userId: string, @Query() query: OrderQueryDto) {
+    return this.ordersService.findMyOrders(userId, query);
   }
 
   @Get(':id')
@@ -104,10 +95,10 @@ export class OrdersController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   @ApiNotFoundResponse({ description: 'Order not found.' })
   findOne(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.ordersService.findMyOrder(request.user.id, id);
+    return this.ordersService.findMyOrder(userId, id);
   }
 
   @Patch(':id/cancel')
@@ -125,9 +116,9 @@ export class OrdersController {
     description: 'Only pending unpaid orders can be cancelled.',
   })
   cancel(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.ordersService.cancelMyOrder(request.user.id, id);
+    return this.ordersService.cancelMyOrder(userId, id);
   }
 }

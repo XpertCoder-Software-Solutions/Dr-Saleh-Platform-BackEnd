@@ -5,7 +5,6 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,15 +17,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CoursesService } from './courses.service';
 import { UpdateLessonProgressDto } from './dto/update-lesson-progress.dto';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('My Courses')
 @ApiBearerAuth()
@@ -39,8 +33,8 @@ export class MyCoursesController {
   @ApiOperation({ summary: 'List current user purchased courses.' })
   @ApiOkResponse({ description: 'Purchased courses returned.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  findAll(@Request() request: AuthenticatedRequest) {
-    return this.coursesService.findMyCourses(request.user.id);
+  findAll(@CurrentUser('id') userId: string) {
+    return this.coursesService.findMyCourses(userId);
   }
 
   @Get(':courseId')
@@ -53,10 +47,10 @@ export class MyCoursesController {
   @ApiNotFoundResponse({ description: 'Course not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   findOne(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('courseId', ParseUUIDPipe) courseId: string,
   ) {
-    return this.coursesService.findMyCourse(request.user.id, courseId);
+    return this.coursesService.findMyCourse(userId, courseId);
   }
 
   @Get(':courseId/lessons/:lessonId')
@@ -68,15 +62,11 @@ export class MyCoursesController {
   @ApiNotFoundResponse({ description: 'Lesson or course not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   findLesson(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('courseId', ParseUUIDPipe) courseId: string,
     @Param('lessonId', ParseUUIDPipe) lessonId: string,
   ) {
-    return this.coursesService.findMyCourseLesson(
-      request.user.id,
-      courseId,
-      lessonId,
-    );
+    return this.coursesService.findMyCourseLesson(userId, courseId, lessonId);
   }
 
   @Patch('lessons/:lessonId/progress')
@@ -87,12 +77,12 @@ export class MyCoursesController {
   @ApiNotFoundResponse({ description: 'Lesson not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   updateProgress(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('lessonId', ParseUUIDPipe) lessonId: string,
     @Body() updateDto: UpdateLessonProgressDto,
   ) {
     return this.coursesService.updateLessonProgress(
-      request.user.id,
+      userId,
       lessonId,
       updateDto,
     );

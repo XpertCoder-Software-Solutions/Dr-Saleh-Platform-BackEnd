@@ -1,5 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
 import { PrismaService } from '../database/prisma.service';
 import { BrevoEmailService } from '../email/brevo-email.service';
 import { AdminContactQueryDto } from './dto/admin-contact-query.dto';
@@ -58,9 +62,7 @@ export class ContactUsService {
   }
 
   async adminFindAll(query: AdminContactQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildAdminWhere(query);
 
     const [total, messages] = await this.prisma.$transaction([
@@ -78,12 +80,7 @@ export class ContactUsService {
       message: 'Contact messages returned successfully',
       data: {
         messages: messages.map((message) => this.toContactMessage(message)),
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }

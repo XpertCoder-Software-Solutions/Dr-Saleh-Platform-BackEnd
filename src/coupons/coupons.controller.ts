@@ -7,7 +7,6 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -20,9 +19,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CouponsService } from './coupons.service';
 import { CouponActionDto } from './dto/coupon-action.dto';
 import {
@@ -30,10 +28,6 @@ import {
   CouponRemoveApiResponseDto,
   CouponValidateApiResponseDto,
 } from './dto/coupon-response.dto';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Coupons')
 @ApiBearerAuth()
@@ -61,10 +55,10 @@ export class CouponsController {
       'Coupon is inactive, expired, over usage limit, already combined, or order cannot be changed.',
   })
   validate(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() couponActionDto: CouponActionDto,
   ) {
-    return this.couponsService.validateCoupon(request.user.id, couponActionDto);
+    return this.couponsService.validateCoupon(userId, couponActionDto);
   }
 
   @Post('apply')
@@ -86,10 +80,10 @@ export class CouponsController {
       'Coupon is inactive, expired, over usage limit, already combined, or order cannot be changed.',
   })
   apply(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() couponActionDto: CouponActionDto,
   ) {
-    return this.couponsService.applyCoupon(request.user.id, couponActionDto);
+    return this.couponsService.applyCoupon(userId, couponActionDto);
   }
 
   @Delete('remove/:orderId')
@@ -110,9 +104,9 @@ export class CouponsController {
     description: 'Order cannot be changed after payment starts.',
   })
   remove(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('orderId', ParseUUIDPipe) orderId: string,
   ) {
-    return this.couponsService.removeCoupon(request.user.id, orderId);
+    return this.couponsService.removeCoupon(userId, orderId);
   }
 }

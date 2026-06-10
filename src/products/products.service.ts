@@ -7,15 +7,17 @@ import {
 import { Prisma } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { resolve } from 'path';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { CreateProductImageDto } from './dto/create-product-image.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { LangQueryDto, ProductLanguage } from './dto/lang-query.dto';
-import {
-  AdminProductQueryDto,
-  ProductQueryDto,
-} from './dto/product-query.dto';
+import { AdminProductQueryDto, ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
 import { UpdateProductImageDto } from './dto/update-product-image.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -172,9 +174,7 @@ export class ProductsService {
   }
 
   async findProducts(query: ProductQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildPublicProductsWhere(query);
 
     const [total, products] = await this.prisma.$transaction([
@@ -194,12 +194,7 @@ export class ProductsService {
         products: products.map((product) =>
           this.toPublicProduct(product, query.lang),
         ),
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -237,9 +232,7 @@ export class ProductsService {
   }
 
   async adminFindProducts(query: AdminProductQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildAdminProductsWhere(query);
 
     const [total, products] = await this.prisma.$transaction([
@@ -257,12 +250,7 @@ export class ProductsService {
       message: 'Products returned successfully',
       data: {
         products: products.map((product) => this.toProduct(product)),
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -756,13 +744,9 @@ export class ProductsService {
       descriptionEn: product.descriptionEn,
       coverImage: product.coverImage,
       priceEGP: this.toNumberFromDecimal(product.priceEgp),
-      discountPriceEGP: this.toOptionalNumberOrNull(
-        product.discountPriceEgp,
-      ),
+      discountPriceEGP: this.toOptionalNumberOrNull(product.discountPriceEgp),
       priceUSD: this.toNumberFromDecimal(product.priceUsd),
-      discountPriceUSD: this.toOptionalNumberOrNull(
-        product.discountPriceUsd,
-      ),
+      discountPriceUSD: this.toOptionalNumberOrNull(product.discountPriceUsd),
       stock: product.stock,
       sku: product.sku,
       isFeatured: product.isFeatured,
@@ -795,13 +779,9 @@ export class ProductsService {
       slug: product.slug,
       coverImage: product.coverImage,
       priceEGP: this.toNumberFromDecimal(product.priceEgp),
-      discountPriceEGP: this.toOptionalNumberOrNull(
-        product.discountPriceEgp,
-      ),
+      discountPriceEGP: this.toOptionalNumberOrNull(product.discountPriceEgp),
       priceUSD: this.toNumberFromDecimal(product.priceUsd),
-      discountPriceUSD: this.toOptionalNumberOrNull(
-        product.discountPriceUsd,
-      ),
+      discountPriceUSD: this.toOptionalNumberOrNull(product.discountPriceUsd),
       stock: product.stock,
       sku: product.sku,
       isFeatured: product.isFeatured,
@@ -864,7 +844,9 @@ export class ProductsService {
     return decimal === null ? undefined : this.toNumberFromDecimal(decimal);
   }
 
-  private toOptionalNumberOrNull(decimal: Prisma.Decimal | null): number | null {
+  private toOptionalNumberOrNull(
+    decimal: Prisma.Decimal | null,
+  ): number | null {
     return decimal === null ? null : this.toNumberFromDecimal(decimal);
   }
 
@@ -890,10 +872,7 @@ export class ProductsService {
   }
 
   private handleUniqueConstraintError(error: unknown): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isPrismaUniqueConstraintError(error)) {
       throw new ConflictException('Product slug or SKU already exists.');
     }
 

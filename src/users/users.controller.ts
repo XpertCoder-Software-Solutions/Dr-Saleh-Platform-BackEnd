@@ -8,7 +8,6 @@ import {
   HttpStatus,
   Patch,
   Post,
-  Request,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -24,13 +23,12 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { mkdirSync } from 'fs';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
 import { diskStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UsersService } from './users.service';
@@ -53,10 +51,6 @@ const allowedProfileImageMimeTypes = new Set([
   'image/webp',
 ]);
 
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
-
 @ApiTags('Users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -68,8 +62,8 @@ export class UsersController {
   @ApiOperation({ summary: 'Get the current authenticated user profile.' })
   @ApiOkResponse({ description: 'Current user profile returned.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  getProfile(@Request() request: AuthenticatedRequest) {
-    return this.usersService.getProfile(request.user.id);
+  getProfile(@CurrentUser('id') userId: string) {
+    return this.usersService.getProfile(userId);
   }
 
   @Patch('profile')
@@ -78,10 +72,10 @@ export class UsersController {
   @ApiBadRequestResponse({ description: 'Invalid request body.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   updateProfile(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
-    return this.usersService.updateProfile(request.user.id, updateProfileDto);
+    return this.usersService.updateProfile(userId, updateProfileDto);
   }
 
   @Post('change-password')
@@ -91,10 +85,10 @@ export class UsersController {
   @ApiBadRequestResponse({ description: 'Invalid password change request.' })
   @ApiUnauthorizedResponse({ description: 'Missing token or wrong password.' })
   changePassword(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
-    return this.usersService.changePassword(request.user.id, changePasswordDto);
+    return this.usersService.changePassword(userId, changePasswordDto);
   }
 
   @Post('profile-image')
@@ -154,7 +148,7 @@ export class UsersController {
   @ApiBadRequestResponse({ description: 'Invalid image upload.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   updateProfileImage(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     if (!file) {
@@ -162,7 +156,7 @@ export class UsersController {
     }
 
     return this.usersService.updateProfileImage(
-      request.user.id,
+      userId,
       `/uploads/users/profile-images/${file.filename}`,
     );
   }
@@ -172,7 +166,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Delete the current user profile image.' })
   @ApiOkResponse({ description: 'Profile image deleted successfully.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  deleteProfileImage(@Request() request: AuthenticatedRequest) {
-    return this.usersService.deleteProfileImage(request.user.id);
+  deleteProfileImage(@CurrentUser('id') userId: string) {
+    return this.usersService.deleteProfileImage(userId);
   }
 }

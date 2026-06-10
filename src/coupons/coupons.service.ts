@@ -11,6 +11,11 @@ import {
   PaymentStatus,
   Prisma,
 } from '@prisma/client';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { CouponActionDto } from './dto/coupon-action.dto';
 import { CouponQueryDto } from './dto/coupon-query.dto';
@@ -118,9 +123,7 @@ export class CouponsService {
   }
 
   async adminFindAll(query: CouponQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where: Prisma.CouponWhereInput = {
       ...(query.search
         ? {
@@ -153,7 +156,7 @@ export class CouponsService {
       message: 'Coupons returned successfully',
       data: {
         items: coupons.map((coupon) => this.toCoupon(coupon)),
-        pagination: this.toPagination(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -651,15 +654,6 @@ export class CouponsService {
     };
   }
 
-  private toPagination(page: number, limit: number, total: number) {
-    return {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
   private roundMoney(value: number): number {
     return Number(value.toFixed(2));
   }
@@ -688,10 +682,7 @@ export class CouponsService {
     error: unknown,
     foreignKeyMessage = 'Coupon cannot be deleted because it is already referenced.',
   ): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isPrismaUniqueConstraintError(error)) {
       throw new ConflictException('Coupon code already exists.');
     }
 

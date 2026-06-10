@@ -6,6 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
 import { PrismaService } from '../database/prisma.service';
 import { BrevoEmailService } from '../email/brevo-email.service';
 import { AdminConsultationQueryDto } from './dto/admin-consultation-query.dto';
@@ -188,9 +192,7 @@ export class ConsultationsService {
   }
 
   async adminFindRequests(query: AdminConsultationQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildAdminRequestsWhere(query);
 
     const [total, requests] = await this.prisma.$transaction([
@@ -208,12 +210,7 @@ export class ConsultationsService {
       message: 'Consultation requests returned successfully',
       data: {
         requests: requests.map((request) => this.toRequest(request)),
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }

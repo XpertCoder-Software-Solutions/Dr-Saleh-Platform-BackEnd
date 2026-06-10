@@ -9,7 +9,6 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -22,9 +21,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateUserAddressDto } from './dto/create-user-address.dto';
 import { UpdateUserAddressDto } from './dto/update-user-address.dto';
 import {
@@ -33,10 +31,6 @@ import {
   UserAddressListApiResponseDto,
 } from './dto/user-address-response.dto';
 import { UserAddressesService } from './user-addresses.service';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('User Addresses')
 @ApiBearerAuth()
@@ -52,8 +46,8 @@ export class UserAddressesController {
     type: UserAddressListApiResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  findAll(@Request() request: AuthenticatedRequest) {
-    return this.userAddressesService.findAll(request.user.id);
+  findAll(@CurrentUser('id') userId: string) {
+    return this.userAddressesService.findAll(userId);
   }
 
   @Get(':id')
@@ -65,10 +59,10 @@ export class UserAddressesController {
   @ApiNotFoundResponse({ description: 'Address not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   findOne(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.userAddressesService.findOne(request.user.id, id);
+    return this.userAddressesService.findOne(userId, id);
   }
 
   @Post()
@@ -83,13 +77,10 @@ export class UserAddressesController {
   })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   create(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() createUserAddressDto: CreateUserAddressDto,
   ) {
-    return this.userAddressesService.create(
-      request.user.id,
-      createUserAddressDto,
-    );
+    return this.userAddressesService.create(userId, createUserAddressDto);
   }
 
   @Patch(':id')
@@ -104,15 +95,11 @@ export class UserAddressesController {
   @ApiNotFoundResponse({ description: 'Address not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   update(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserAddressDto: UpdateUserAddressDto,
   ) {
-    return this.userAddressesService.update(
-      request.user.id,
-      id,
-      updateUserAddressDto,
-    );
+    return this.userAddressesService.update(userId, id, updateUserAddressDto);
   }
 
   @Delete(':id')
@@ -125,9 +112,9 @@ export class UserAddressesController {
   @ApiNotFoundResponse({ description: 'Address not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   delete(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.userAddressesService.delete(request.user.id, id);
+    return this.userAddressesService.delete(userId, id);
   }
 }

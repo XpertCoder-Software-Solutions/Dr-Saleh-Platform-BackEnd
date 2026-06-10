@@ -7,11 +7,13 @@ import {
 import { Prisma } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { resolve } from 'path';
-import { PrismaService } from '../database/prisma.service';
 import {
-  AdminArticleQueryDto,
-  ArticleQueryDto,
-} from './dto/article-query.dto';
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
+import { PrismaService } from '../database/prisma.service';
+import { AdminArticleQueryDto, ArticleQueryDto } from './dto/article-query.dto';
 import { CreateArticleCategoryDto } from './dto/create-article-category.dto';
 import { CreateArticleTagDto } from './dto/create-article-tag.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -204,10 +206,7 @@ export class ArticlesService {
     };
   }
 
-  async adminUpdateTag(
-    id: string,
-    updateArticleTagDto: UpdateArticleTagDto,
-  ) {
+  async adminUpdateTag(id: string, updateArticleTagDto: UpdateArticleTagDto) {
     await this.findTagOrThrow(id);
 
     const tag = await this.prisma.articleTag.update({
@@ -249,9 +248,7 @@ export class ArticlesService {
   }
 
   async findArticles(query: ArticleQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildPublicArticlesWhere(query);
 
     const [total, articles] = await this.prisma.$transaction([
@@ -271,12 +268,7 @@ export class ArticlesService {
         articles: articles.map((article) =>
           this.toPublicArticle(article, query.lang),
         ),
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -298,9 +290,7 @@ export class ArticlesService {
   }
 
   async adminFindArticles(query: AdminArticleQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildAdminArticlesWhere(query);
 
     const [total, articles] = await this.prisma.$transaction([
@@ -318,12 +308,7 @@ export class ArticlesService {
       message: 'Articles returned successfully',
       data: {
         articles: articles.map((article) => this.toArticle(article)),
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -868,10 +853,7 @@ export class ArticlesService {
   }
 
   private handleUniqueConstraintError(error: unknown): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isPrismaUniqueConstraintError(error)) {
       throw new ConflictException('Article slug already exists.');
     }
 

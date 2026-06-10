@@ -8,7 +8,6 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,9 +23,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateFawryPaymentDto } from './dto/create-fawry-payment.dto';
 import { FawryWebhookDto } from './dto/fawry-webhook.dto';
 import {
@@ -35,10 +33,6 @@ import {
   FawryWebhookApiResponseDto,
 } from './dto/payment-response.dto';
 import { PaymentsService } from './payments.service';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Payments - Fawry')
 @Controller('payments/fawry')
@@ -66,11 +60,11 @@ export class PaymentsController {
   })
   @ApiBadGatewayResponse({ description: 'Fawry request failed.' })
   create(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() createFawryPaymentDto: CreateFawryPaymentDto,
   ) {
     return this.paymentsService.createFawryPayment(
-      request.user.id,
+      userId,
       createFawryPaymentDto,
     );
   }
@@ -108,10 +102,10 @@ export class PaymentsController {
   @ApiNotFoundResponse({ description: 'Fawry payment not found.' })
   @ApiBadGatewayResponse({ description: 'Fawry request failed.' })
   status(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('orderId', ParseUUIDPipe) orderId: string,
   ) {
-    return this.paymentsService.pullFawryStatus(request.user.id, orderId);
+    return this.paymentsService.pullFawryStatus(userId, orderId);
   }
 
   @Patch('cancel/:orderId')
@@ -133,9 +127,9 @@ export class PaymentsController {
   })
   @ApiBadGatewayResponse({ description: 'Fawry cancel request failed.' })
   cancel(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('orderId', ParseUUIDPipe) orderId: string,
   ) {
-    return this.paymentsService.cancelFawryPayment(request.user.id, orderId);
+    return this.paymentsService.cancelFawryPayment(userId, orderId);
   }
 }

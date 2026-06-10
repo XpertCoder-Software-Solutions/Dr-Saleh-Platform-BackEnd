@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common';
 import { PaymentStatus, Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import referralConfig, { type ReferralConfig } from '../config/referral.config';
 import { PrismaService } from '../database/prisma.service';
 import { ApplyReferralCodeDto } from './dto/apply-referral-code.dto';
@@ -78,9 +83,7 @@ export class ReferralsService {
   }
 
   async findMyReferrals(userId: string, query: ReferralQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where: Prisma.ReferralWhereInput = { referrerUserId: userId };
 
     const [total, referrals] = await this.prisma.$transaction([
@@ -98,7 +101,7 @@ export class ReferralsService {
       message: 'Referrals returned successfully',
       data: {
         items: referrals.map((referral) => this.toReferral(referral)),
-        pagination: this.toPagination(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -165,9 +168,7 @@ export class ReferralsService {
   }
 
   async adminFindAll(query: AdminReferralQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where: Prisma.ReferralWhereInput = {
       ...(query.referrerUserId ? { referrerUserId: query.referrerUserId } : {}),
       ...(query.referredUserId ? { referredUserId: query.referredUserId } : {}),
@@ -191,7 +192,7 @@ export class ReferralsService {
       message: 'Referrals returned successfully',
       data: {
         items: referrals.map((referral) => this.toReferral(referral)),
-        pagination: this.toPagination(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -417,24 +418,12 @@ export class ReferralsService {
     };
   }
 
-  private toPagination(page: number, limit: number, total: number) {
-    return {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
   private toNumberFromDecimal(decimal: Prisma.Decimal): number {
     return Number(decimal.toString());
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
-    return (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    );
+    return isPrismaUniqueConstraintError(error);
   }
 
   private handleReferralPersistenceError(error: unknown): never {

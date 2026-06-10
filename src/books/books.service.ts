@@ -7,6 +7,7 @@ import {
 import { BookFormatType, Prisma } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { resolve } from 'path';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { CreateBookDto } from './dto/create-book.dto';
 import { CreateBookFormatDto } from './dto/create-book-format.dto';
@@ -1092,10 +1093,7 @@ export class BooksService {
   }
 
   private handleUniqueConstraintError(error: unknown): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isPrismaUniqueConstraintError(error)) {
       throw new ConflictException('Book slug, SKU, or format already exists.');
     }
 

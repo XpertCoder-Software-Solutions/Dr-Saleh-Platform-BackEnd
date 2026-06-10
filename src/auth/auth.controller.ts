@@ -4,7 +4,6 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -22,7 +21,7 @@ import {
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import {
   AuthService,
   LoginResult,
@@ -38,11 +37,6 @@ import { ResendEmailVerificationDto } from './dto/resend-email-verification.dto'
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import type { AuthenticatedUser } from './jwt.strategy';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -199,8 +193,8 @@ export class AuthController {
     },
   })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  logout(@Request() request: AuthenticatedRequest): Promise<MessageResult> {
-    return this.authService.logout(request.user.id);
+  logout(@CurrentUser('id') userId: string): Promise<MessageResult> {
+    return this.authService.logout(userId);
   }
 
   @Post('forgot-password')

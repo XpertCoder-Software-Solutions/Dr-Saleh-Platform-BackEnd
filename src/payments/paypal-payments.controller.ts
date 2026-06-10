@@ -8,7 +8,6 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -25,9 +24,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreatePaypalPaymentDto } from './dto/create-paypal-payment.dto';
 import {
   PaypalCreatePaymentApiResponseDto,
@@ -35,10 +33,6 @@ import {
   PaypalWebhookApiResponseDto,
 } from './dto/payment-response.dto';
 import { PaymentsService } from './payments.service';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Payments - PayPal')
 @Controller('payments/paypal')
@@ -69,11 +63,11 @@ export class PaypalPaymentsController {
   })
   @ApiBadGatewayResponse({ description: 'PayPal request failed.' })
   create(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() createPaypalPaymentDto: CreatePaypalPaymentDto,
   ) {
     return this.paymentsService.createPaypalPayment(
-      request.user.id,
+      userId,
       createPaypalPaymentDto,
     );
   }
@@ -122,9 +116,9 @@ export class PaypalPaymentsController {
   @ApiConflictResponse({ description: 'PayPal order id is not available.' })
   @ApiBadGatewayResponse({ description: 'PayPal request failed.' })
   status(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('orderId', ParseUUIDPipe) orderId: string,
   ) {
-    return this.paymentsService.pullPaypalStatus(request.user.id, orderId);
+    return this.paymentsService.pullPaypalStatus(userId, orderId);
   }
 }

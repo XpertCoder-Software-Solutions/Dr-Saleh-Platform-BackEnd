@@ -8,7 +8,6 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -23,16 +22,11 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CoursesService } from './courses.service';
 import { CreateCourseReviewDto } from './dto/create-course-review.dto';
 import { ReviewQueryDto } from './dto/review-query.dto';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Course Reviews')
 @Controller('courses/:courseId/reviews')
@@ -55,15 +49,11 @@ export class CourseReviewsController {
   @ApiConflictResponse({ description: 'User already reviewed this course.' })
   @ApiNotFoundResponse({ description: 'Course not found.' })
   create(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('courseId', ParseUUIDPipe) courseId: string,
     @Body() createDto: CreateCourseReviewDto,
   ) {
-    return this.coursesService.createReview(
-      request.user.id,
-      courseId,
-      createDto,
-    );
+    return this.coursesService.createReview(userId, courseId, createDto);
   }
 
   @Get()

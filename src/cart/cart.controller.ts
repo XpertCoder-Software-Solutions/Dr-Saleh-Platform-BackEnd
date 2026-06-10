@@ -10,7 +10,6 @@ import {
   Patch,
   Post,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,9 +23,8 @@ import {
   ApiUnauthorizedResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CartService } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { CartQueryDto } from './dto/cart-query.dto';
@@ -37,10 +35,6 @@ import {
   CartSummaryApiResponseDto,
 } from './dto/cart-response.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Cart')
 @ApiBearerAuth()
@@ -72,10 +66,10 @@ export class CartController {
       'Duplicate item, already purchased item, or insufficient stock.',
   })
   addItem(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() addCartItemDto: AddCartItemDto,
   ) {
-    return this.cartService.addItem(request.user.id, addCartItemDto);
+    return this.cartService.addItem(userId, addCartItemDto);
   }
 
   @Get()
@@ -90,11 +84,8 @@ export class CartController {
   })
   @ApiBadRequestResponse({ description: 'Invalid currency.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  getCart(
-    @Request() request: AuthenticatedRequest,
-    @Query() query: CartQueryDto,
-  ) {
-    return this.cartService.getCart(request.user.id, query);
+  getCart(@CurrentUser('id') userId: string, @Query() query: CartQueryDto) {
+    return this.cartService.getCart(userId, query);
   }
 
   @Patch('items/:id')
@@ -116,15 +107,11 @@ export class CartController {
   })
   @ApiConflictResponse({ description: 'Insufficient stock.' })
   updateQuantity(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCartItemDto: UpdateCartItemDto,
   ) {
-    return this.cartService.updateQuantity(
-      request.user.id,
-      id,
-      updateCartItemDto,
-    );
+    return this.cartService.updateQuantity(userId, id, updateCartItemDto);
   }
 
   @Delete('items/:id')
@@ -140,10 +127,10 @@ export class CartController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   @ApiNotFoundResponse({ description: 'Cart item not found.' })
   removeItem(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.cartService.removeItem(request.user.id, id);
+    return this.cartService.removeItem(userId, id);
   }
 
   @Delete()
@@ -154,8 +141,8 @@ export class CartController {
     type: CartDeleteApiResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  clearCart(@Request() request: AuthenticatedRequest) {
-    return this.cartService.clearCart(request.user.id);
+  clearCart(@CurrentUser('id') userId: string) {
+    return this.cartService.clearCart(userId);
   }
 
   @Get('summary')
@@ -170,10 +157,7 @@ export class CartController {
   })
   @ApiBadRequestResponse({ description: 'Invalid currency.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  getSummary(
-    @Request() request: AuthenticatedRequest,
-    @Query() query: CartQueryDto,
-  ) {
-    return this.cartService.getSummary(request.user.id, query);
+  getSummary(@CurrentUser('id') userId: string, @Query() query: CartQueryDto) {
+    return this.cartService.getSummary(userId, query);
   }
 }

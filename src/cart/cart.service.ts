@@ -12,6 +12,7 @@ import {
   PaymentStatus,
   Prisma,
 } from '@prisma/client';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { CartQueryDto } from './dto/cart-query.dto';
@@ -908,10 +909,7 @@ export class CartService {
   }
 
   private handleDuplicateCartItemError(error: unknown): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isPrismaUniqueConstraintError(error)) {
       throw new ConflictException('Item already exists in cart.');
     }
 

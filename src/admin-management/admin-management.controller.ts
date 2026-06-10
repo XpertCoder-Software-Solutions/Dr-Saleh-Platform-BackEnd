@@ -9,7 +9,6 @@ import {
   Patch,
   Post,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,10 +23,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AdminManagementService } from './admin-management.service';
 import { AdminQueryDto } from './dto/admin-query.dto';
 import {
@@ -36,10 +34,6 @@ import {
 } from './dto/admin-response.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Admin Management')
 @ApiBearerAuth()
@@ -122,12 +116,12 @@ export class AdminManagementController {
       'Cannot deactivate self, cannot deactivate last active admin, or phone is already registered.',
   })
   update(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') actingAdminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateAdminDto: UpdateAdminDto,
   ) {
     return this.adminManagementService.update(
-      request.user.id,
+      actingAdminId,
       id,
       updateAdminDto,
     );

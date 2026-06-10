@@ -11,6 +11,11 @@ import {
   OrderItemType,
   Prisma,
 } from '@prisma/client';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { AdminCourseQueryDto, CourseQueryDto } from './dto/course-query.dto';
 import { CreateCourseCategoryDto } from './dto/create-course-category.dto';
@@ -323,9 +328,7 @@ export class CoursesService {
   }
 
   async adminFindCourses(query: AdminCourseQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildAdminCoursesWhere(query);
 
     const [total, courses] = await this.prisma.$transaction([
@@ -343,7 +346,7 @@ export class CoursesService {
       message: 'Courses returned successfully',
       data: {
         courses: courses.map((course) => this.toCourseSummary(course)),
-        meta: this.toPaginationMeta(page, limit, total),
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -665,9 +668,7 @@ export class CoursesService {
   }
 
   async findCourses(query: CourseQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildPublicCoursesWhere(query);
 
     const [total, courses] = await this.prisma.$transaction([
@@ -685,7 +686,7 @@ export class CoursesService {
       message: 'Courses returned successfully',
       data: {
         courses: courses.map((course) => this.toCourseSummary(course)),
-        meta: this.toPaginationMeta(page, limit, total),
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -887,7 +888,7 @@ export class CoursesService {
       message: 'Course reviews returned successfully',
       data: {
         reviews: reviews.map((review) => this.toReview(review)),
-        meta: this.toPaginationMeta(page, limit, total),
+        meta: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -1369,15 +1370,6 @@ export class CoursesService {
     };
   }
 
-  private toPaginationMeta(page: number, limit: number, total: number) {
-    return {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
   private toNumberFromDecimal(decimal: Prisma.Decimal): number {
     return Number(decimal.toString());
   }
@@ -1395,10 +1387,7 @@ export class CoursesService {
   }
 
   private handleUniqueConstraintError(error: unknown, message: string): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isPrismaUniqueConstraintError(error)) {
       throw new ConflictException(message);
     }
 

@@ -15,6 +15,10 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma, RoleName } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import type { StringValue } from 'ms';
+import {
+  getPrismaUniqueConstraintFields,
+  isPrismaUniqueConstraintError,
+} from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { BrevoEmailService } from '../email/brevo-email.service';
 import {
@@ -817,11 +821,8 @@ export class AuthService {
   }
 
   private handleUniqueConstraintError(error: unknown): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
-      const target = this.getPrismaErrorTarget(error.meta?.target);
+    if (isPrismaUniqueConstraintError(error)) {
+      const target = getPrismaUniqueConstraintFields(error);
 
       if (target.includes('email')) {
         throw new ConflictException('Email is already registered.');
@@ -843,12 +844,6 @@ export class AuthService {
     }
 
     throw error;
-  }
-
-  private getPrismaErrorTarget(target: unknown): string[] {
-    return Array.isArray(target)
-      ? target.filter((value): value is string => typeof value === 'string')
-      : [];
   }
 
   private getRequiredConfig(name: string, fallbackName?: string): string {

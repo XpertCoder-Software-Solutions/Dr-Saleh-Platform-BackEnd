@@ -13,6 +13,10 @@ import {
   PaymentStatus,
   Prisma,
 } from '@prisma/client';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
 import { PrismaService } from '../database/prisma.service';
 import { AdminOrderQueryDto } from './dto/admin-order-query.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -344,9 +348,7 @@ export class OrdersService {
   }
 
   async findMyOrders(userId: string, query: OrderQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where: Prisma.OrderWhereInput = { userId };
 
     const [total, orders] = await this.prisma.$transaction([
@@ -364,7 +366,7 @@ export class OrdersService {
       message: 'Orders returned successfully',
       data: {
         items: orders.map((order) => this.toOrder(order)),
-        pagination: this.toPagination(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -430,9 +432,7 @@ export class OrdersService {
   }
 
   async adminFindOrders(query: AdminOrderQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where: Prisma.OrderWhereInput = {
       ...(query.status ? { status: query.status } : {}),
       ...(query.paymentStatus ? { paymentStatus: query.paymentStatus } : {}),
@@ -454,7 +454,7 @@ export class OrdersService {
       message: 'Orders returned successfully',
       data: {
         items: orders.map((order) => this.toOrder(order, true)),
-        pagination: this.toPagination(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -1135,15 +1135,6 @@ export class OrdersService {
       totalPrice: this.toNumberFromDecimal(orderItem.totalPrice),
       createdAt: orderItem.createdAt,
       updatedAt: orderItem.updatedAt,
-    };
-  }
-
-  private toPagination(page: number, limit: number, total: number) {
-    return {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
     };
   }
 

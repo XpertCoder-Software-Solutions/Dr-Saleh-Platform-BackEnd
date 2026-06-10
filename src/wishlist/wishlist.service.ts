@@ -4,6 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, WishlistItemType } from '@prisma/client';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+  type PaginationMeta,
+} from '../common/utils/pagination';
+import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { CheckWishlistItemDto } from './dto/check-wishlist-item.dto';
 import { CreateWishlistItemDto } from './dto/create-wishlist-item.dto';
@@ -138,17 +144,10 @@ export class WishlistService {
     message: string;
     data: {
       items: WishlistItemResponse[];
-      pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-      };
+      pagination: PaginationMeta;
     };
   }> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where: Prisma.WishlistWhereInput = {
       userId,
       ...(query.itemType ? { itemType: query.itemType } : {}),
@@ -172,12 +171,7 @@ export class WishlistService {
         items: wishlists.map((wishlist) =>
           this.toWishlistItem(wishlist, catalogItems),
         ),
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -427,10 +421,7 @@ export class WishlistService {
   }
 
   private handleDuplicateWishlistError(error: unknown): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isPrismaUniqueConstraintError(error)) {
       throw new ConflictException('Item already exists in wishlist.');
     }
 

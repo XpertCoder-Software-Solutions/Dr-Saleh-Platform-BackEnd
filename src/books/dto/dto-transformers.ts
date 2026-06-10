@@ -1,11 +1,9 @@
 import { BookFormatType } from '@prisma/client';
 import type { TransformFnParams } from 'class-transformer';
-
-export const trimString = ({ value }: TransformFnParams): unknown => {
-  const rawValue: unknown = value;
-
-  return typeof rawValue === 'string' ? rawValue.trim() : rawValue;
-};
+export {
+  toOptionalNumber,
+  trimString,
+} from '../../common/utils/dto-transformers';
 
 export const toOptionalBoolean = ({ value }: TransformFnParams): unknown => {
   if (value === undefined || value === null || value === '') {
@@ -21,14 +19,6 @@ export const toOptionalBoolean = ({ value }: TransformFnParams): unknown => {
   }
 
   return value;
-};
-
-export const toOptionalNumber = ({ value }: TransformFnParams): unknown => {
-  if (value === undefined || value === null || value === '') {
-    return undefined;
-  }
-
-  return Number(value);
 };
 
 export const toBookFormatType = ({ value }: TransformFnParams): unknown => {

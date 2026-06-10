@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Query,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -17,9 +9,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ApplyReferralCodeDto } from './dto/apply-referral-code.dto';
 import { ReferralQueryDto } from './dto/referral-query.dto';
 import {
@@ -28,10 +19,6 @@ import {
   ReferralListApiResponseDto,
 } from './dto/referral-response.dto';
 import { ReferralsService } from './referrals.service';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Referrals')
 @ApiBearerAuth()
@@ -52,8 +39,8 @@ export class ReferralsController {
   })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   @ApiNotFoundResponse({ description: 'User not found.' })
-  getMyCode(@Request() request: AuthenticatedRequest) {
-    return this.referralsService.getMyCode(request.user.id);
+  getMyCode(@CurrentUser('id') userId: string) {
+    return this.referralsService.getMyCode(userId);
   }
 
   @Get('my-referrals')
@@ -67,10 +54,10 @@ export class ReferralsController {
   })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   findMyReferrals(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Query() query: ReferralQueryDto,
   ) {
-    return this.referralsService.findMyReferrals(request.user.id, query);
+    return this.referralsService.findMyReferrals(userId, query);
   }
 
   @Post('apply-code')
@@ -91,12 +78,9 @@ export class ReferralsController {
       'User cannot refer himself, is already referred, or has already paid an order.',
   })
   applyCode(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() applyReferralCodeDto: ApplyReferralCodeDto,
   ) {
-    return this.referralsService.applyCode(
-      request.user.id,
-      applyReferralCodeDto,
-    );
+    return this.referralsService.applyCode(userId, applyReferralCodeDto);
   }
 }

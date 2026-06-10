@@ -9,7 +9,6 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,9 +23,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CheckWishlistItemDto } from './dto/check-wishlist-item.dto';
 import { CreateWishlistItemDto } from './dto/create-wishlist-item.dto';
 import {
@@ -37,10 +35,6 @@ import {
 } from './dto/wishlist-response.dto';
 import { WishlistQueryDto } from './dto/wishlist-query.dto';
 import { WishlistService } from './wishlist.service';
-
-type AuthenticatedRequest = ExpressRequest & {
-  user: AuthenticatedUser;
-};
 
 @ApiTags('Wishlist')
 @ApiBearerAuth()
@@ -65,10 +59,10 @@ export class WishlistController {
   @ApiNotFoundResponse({ description: 'Course, book, or product not found.' })
   @ApiConflictResponse({ description: 'Item already exists in wishlist.' })
   add(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Body() createWishlistItemDto: CreateWishlistItemDto,
   ) {
-    return this.wishlistService.add(request.user.id, createWishlistItemDto);
+    return this.wishlistService.add(userId, createWishlistItemDto);
   }
 
   @Get()
@@ -84,10 +78,10 @@ export class WishlistController {
   @ApiBadRequestResponse({ description: 'Invalid pagination or itemType.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   findMyWishlist(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Query() query: WishlistQueryDto,
   ) {
-    return this.wishlistService.findMyWishlist(request.user.id, query);
+    return this.wishlistService.findMyWishlist(userId, query);
   }
 
   @Get('check')
@@ -110,10 +104,10 @@ export class WishlistController {
   @ApiBadRequestResponse({ description: 'Invalid itemType or itemId.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   check(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Query() checkWishlistItemDto: CheckWishlistItemDto,
   ) {
-    return this.wishlistService.check(request.user.id, checkWishlistItemDto);
+    return this.wishlistService.check(userId, checkWishlistItemDto);
   }
 
   @Delete(':id')
@@ -129,9 +123,9 @@ export class WishlistController {
   @ApiNotFoundResponse({ description: 'Wishlist item not found.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   remove(
-    @Request() request: AuthenticatedRequest,
+    @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.wishlistService.remove(request.user.id, id);
+    return this.wishlistService.remove(userId, id);
   }
 }

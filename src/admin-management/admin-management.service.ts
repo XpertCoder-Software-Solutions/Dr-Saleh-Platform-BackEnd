@@ -8,6 +8,14 @@ import {
 import { Prisma, RoleName } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { PasswordService } from '../auth/services/password.service';
+import {
+  buildPaginationMeta,
+  getPaginationParams,
+} from '../common/utils/pagination';
+import {
+  getPrismaUniqueConstraintFields,
+  isPrismaUniqueConstraintError,
+} from '../common/utils/prisma-errors';
 import { AdminQueryDto } from './dto/admin-query.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
@@ -41,9 +49,7 @@ export class AdminManagementService {
   ) {}
 
   async findAll(query: AdminQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(query);
     const where = this.buildAdminWhere(query);
 
     const [total, admins] = await this.prisma.$transaction([
@@ -61,7 +67,7 @@ export class AdminManagementService {
       message: 'Admins returned successfully',
       data: {
         admins: admins.map((admin) => this.toAdmin(admin)),
-        pagination: this.toPagination(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -341,27 +347,13 @@ export class AdminManagementService {
     };
   }
 
-  private toPagination(page: number, limit: number, total: number) {
-    return {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
   private hasProvidedFields(dto: object): boolean {
     return Object.values(dto).some((value) => value !== undefined);
   }
 
   private handleUniqueConstraintError(error: unknown): void {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
-      const target = Array.isArray(error.meta?.target)
-        ? error.meta.target.join(', ')
-        : '';
+    if (isPrismaUniqueConstraintError(error)) {
+      const target = getPrismaUniqueConstraintFields(error).join(', ');
 
       if (target.includes('email')) {
         throw new ConflictException('Email is already registered.');
