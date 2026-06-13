@@ -20,6 +20,11 @@ import {
 } from '@nestjs/swagger';
 import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { AdminOrderQueryDto } from './dto/admin-order-query.dto';
 import {
   OrderApiResponseDto,
@@ -66,6 +71,12 @@ export class AdminOrdersController {
   }
 
   @Patch(':id/status')
+  @AuditAction({
+    action: AuditActions.OrderStatusUpdated,
+    entityType: AuditEntityTypes.Order,
+    entityIdParam: 'id',
+    description: 'Admin updated an order status.',
+  })
   @ApiOperation({
     summary: 'Admin: update order or payment status.',
     description:

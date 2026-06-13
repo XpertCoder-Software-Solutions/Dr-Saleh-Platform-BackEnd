@@ -1,0 +1,218 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  CI_DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/dr_saleh_platform?schema=public' }}
+  CI_JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET || 'ci-access-secret-with-at-least-32-characters' }}
+  CI_JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET || 'ci-refresh-secret-with-at-least-32-characters' }}
+
+jobs:
+  validate:
+    name: Lint, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+        run: npx prisma generate
+
+      - name: Run lint
+        run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Run tests
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          JWT_ACCESS_SECRET: ${{ env.CI_JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.CI_JWT_REFRESH_SECRET }}
+          JWT_SECRET: ${{ env.CI_JWT_ACCESS_SECRET }}
+        run: npm test
+
+      - name: Run build
+        run: npm run build
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: validate
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate deployment secrets
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in EC2_HOST EC2_USERNAME EC2_SSH_KEY APP_DIR; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required GitHub Secret: ${name}"
+              missing=1
+            fi
+          done
+          exit "${missing}"
+
+      - name: Configure SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${EC2_SSH_KEY}" > ~/.ssh/ec2_deploy_key
+          chmod 600 ~/.ssh/ec2_deploy_key
+          ssh-keyscan -H "${EC2_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Deploy application
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+          DEPLOY_RUNTIME: ${{ vars.DEPLOY_RUNTIME || 'pm2' }}
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE || 'docker-compose.yml' }}
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL || '' }}
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i ~/.ssh/ec2_deploy_key \
+            -o IdentitiesOnly=yes \
+            "${EC2_USERNAME}@${EC2_HOST}" \
+            "APP_DIR='${APP_DIR}' DEPLOY_RUNTIME='${DEPLOY_RUNTIME}' COMPOSE_FILE='${COMPOSE_FILE}' HEALTHCHECK_URL='${HEALTHCHECK_URL}' bash -s" <<'REMOTE_DEPLOY'
+          set -Eeuo pipefail
+
+          app_dir="${APP_DIR:?APP_DIR is required}"
+          runtime="${DEPLOY_RUNTIME:-pm2}"
+          compose_file="${COMPOSE_FILE:-docker-compose.yml}"
+          healthcheck_url="${HEALTHCHECK_URL:-}"
+          env_file="/etc/dr-saleh-api/.env"
+          previous_sha=""
+
+          echo "Starting deployment."
+          cd "${app_dir}"
+
+          if [ ! -d .git ]; then
+            echo "Deployment directory is not a git repository: ${app_dir}" >&2
+            exit 1
+          fi
+
+          previous_sha="$(git rev-parse HEAD)"
+          echo "Previous revision: ${previous_sha}"
+
+          git fetch --prune origin main
+          git checkout main
+          git reset --hard origin/main
+          echo "Deploying revision: $(git rev-parse HEAD)"
+
+          if [ -f "${env_file}" ]; then
+            set -a
+            . "${env_file}"
+            set +a
+          elif [ -f .env ]; then
+            set -a
+            . ./.env
+            set +a
+          else
+            echo "No env file found. Expected ${env_file} or ${app_dir}/.env" >&2
+            exit 1
+          fi
+
+          npm ci
+          npx prisma migrate deploy
+          npx prisma generate
+          npm run build
+          npm prune --omit=dev
+
+          case "${runtime}" in
+            pm2)
+              if ! command -v pm2 >/dev/null 2>&1; then
+                echo "PM2 is not installed on the EC2 host." >&2
+                exit 1
+              fi
+              if [ ! -d /var/log/dr-saleh-api ] || [ ! -w /var/log/dr-saleh-api ]; then
+                echo "/var/log/dr-saleh-api must exist and be writable by the deploy user." >&2
+                exit 1
+              fi
+              pm2 startOrReload ecosystem.config.cjs --env production
+              pm2 save
+              ;;
+            docker-compose)
+              if ! command -v docker >/dev/null 2>&1; then
+                echo "Docker is not installed on the EC2 host." >&2
+                exit 1
+              fi
+              docker compose -f "${compose_file}" up -d --build app
+              ;;
+            *)
+              echo "Unsupported DEPLOY_RUNTIME: ${runtime}. Use pm2 or docker-compose." >&2
+              exit 1
+              ;;
+          esac
+
+          if [ -z "${healthcheck_url}" ]; then
+            healthcheck_url="http://127.0.0.1:${PORT:-3000}/${API_PREFIX:-api}/health"
+          fi
+
+          echo "Running health check."
+          for attempt in $(seq 1 12); do
+            if curl -fsS "${healthcheck_url}" >/tmp/dr-saleh-health-response.json; then
+              echo "Health check passed."
+              exit 0
+            fi
+            echo "Health check attempt ${attempt}/12 failed; retrying."
+            sleep 5
+          done
+
+          echo "Health check failed after deployment." >&2
+          echo "Previous revision for rollback: ${previous_sha}" >&2
+
+          case "${runtime}" in
+            pm2)
+              pm2 status || true
+              pm2 logs dr-saleh-api --lines 200 --nostream || true
+              ;;
+            docker-compose)
+              docker compose -f "${compose_file}" ps || true
+              docker compose -f "${compose_file}" logs --tail=200 app || true
+              ;;
+          esac
+
+          exit 1
+          REMOTE_DEPLOY
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/ec2_deploy_key

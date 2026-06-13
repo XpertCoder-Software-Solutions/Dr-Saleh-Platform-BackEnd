@@ -53,7 +53,23 @@ export const toOptionalBooleanStrict = ({
     return null;
   }
 
-  return toOptionalBoolean({ value } as TransformFnParams);
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalizedValue = value.trim().toLowerCase();
+
+    if (TRUE_VALUES.has(normalizedValue)) {
+      return true;
+    }
+
+    if (FALSE_VALUES.has(normalizedValue)) {
+      return false;
+    }
+  }
+
+  return value;
 };
 
 export const toOptionalNumber = ({ value }: TransformFnParams): unknown => {

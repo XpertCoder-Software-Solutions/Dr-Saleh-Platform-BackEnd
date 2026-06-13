@@ -18,6 +18,7 @@ import {
   getPaginationParams,
 } from '../common/utils/pagination';
 import { PrismaService } from '../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AdminOrderQueryDto } from './dto/admin-order-query.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
@@ -269,7 +270,10 @@ type OrderResponse = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async createFromCart(
     userId: string,
@@ -300,6 +304,8 @@ export class OrdersService {
     const totals = this.calculateTotals(preparedItems, shippingCost);
     const order = await this.prisma.$transaction(async (tx) => {
       const orderNumber = await this.generateOrderNumber(tx);
+
+      await this.reservePhysicalStock(tx, preparedItems);
 
       const createdOrder = await tx.order.create({
         data: {
@@ -337,6 +343,15 @@ export class OrdersService {
       });
 
       return createdOrder;
+    });
+
+    await this.notificationsService.sendOrderCreated({
+      userId: order.user.id,
+      email: order.user.email,
+      fullName: order.user.fullName,
+      orderNumber: order.orderNumber,
+      totalAmount: this.toNumberFromDecimal(order.totalAmount),
+      currency: order.currency,
     });
 
     return {
@@ -417,10 +432,14 @@ export class OrdersService {
       throw new ConflictException('Paid orders cannot be cancelled.');
     }
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: order.id },
-      data: { status: OrderStatus.CANCELLED },
-      select: orderSelect,
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      await this.releasePhysicalStockReservation(tx, order.id);
+
+      return tx.order.update({
+        where: { id: order.id },
+        data: { status: OrderStatus.CANCELLED },
+        select: orderSelect,
+      });
     });
 
     return {
@@ -484,6 +503,15 @@ export class OrdersService {
     updateOrderStatusDto: UpdateOrderStatusDto,
   ): Promise<{ message: string; data: { order: OrderResponse } }> {
     if (
+      updateOrderStatusDto.status === OrderStatus.PAID ||
+      updateOrderStatusDto.paymentStatus === PaymentStatus.PAID
+    ) {
+      throw new ConflictException(
+        'Manual PAID status updates are not allowed. Use a verified payment provider flow.',
+      );
+    }
+
+    if (
       updateOrderStatusDto.status === undefined &&
       updateOrderStatusDto.paymentStatus === undefined
     ) {
@@ -496,7 +524,8 @@ export class OrdersService {
       where: { id: orderId },
       select: {
         id: true,
-        paidAt: true,
+        status: true,
+        paymentStatus: true,
       },
     });
 
@@ -504,24 +533,33 @@ export class OrdersService {
       throw new NotFoundException('Order not found.');
     }
 
-    const nextPaymentStatus =
-      updateOrderStatusDto.paymentStatus ??
-      (updateOrderStatusDto.status === OrderStatus.PAID
-        ? PaymentStatus.PAID
-        : undefined);
-    const shouldSetPaidAt =
-      order.paidAt === null &&
-      (updateOrderStatusDto.status === OrderStatus.PAID ||
-        nextPaymentStatus === PaymentStatus.PAID);
+    const nextPaymentStatus = updateOrderStatusDto.paymentStatus;
+    const isAdminCancellation =
+      updateOrderStatusDto.status === OrderStatus.CANCELLED;
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: updateOrderStatusDto.status,
-        paymentStatus: nextPaymentStatus,
-        paidAt: shouldSetPaidAt ? new Date() : undefined,
-      },
-      select: orderSelect,
+    if (
+      isAdminCancellation &&
+      (order.status !== OrderStatus.PENDING ||
+        order.paymentStatus === PaymentStatus.PAID)
+    ) {
+      throw new ConflictException(
+        'Only pending unpaid orders can be cancelled.',
+      );
+    }
+
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      if (isAdminCancellation) {
+        await this.releasePhysicalStockReservation(tx, order.id);
+      }
+
+      return tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: updateOrderStatusDto.status,
+          paymentStatus: nextPaymentStatus,
+        },
+        select: orderSelect,
+      });
     });
 
     return {
@@ -1035,6 +1073,106 @@ export class OrdersService {
     }
   }
 
+  private async reservePhysicalStock(
+    tx: Prisma.TransactionClient,
+    preparedItems: PreparedOrderItem[],
+  ): Promise<void> {
+    for (const item of preparedItems) {
+      if (!item.hasPhysicalItem) {
+        continue;
+      }
+
+      if (item.itemType === OrderItemType.PRODUCT) {
+        const result = await tx.product.updateMany({
+          where: {
+            id: item.itemId,
+            stock: { gte: item.quantity },
+          },
+          data: {
+            stock: { decrement: item.quantity },
+          },
+        });
+
+        if (result.count !== 1) {
+          throw new ConflictException('Product stock is insufficient.');
+        }
+
+        continue;
+      }
+
+      if (item.itemType === OrderItemType.BOOK) {
+        const result = await tx.bookFormat.updateMany({
+          where: {
+            id: item.itemId,
+            formatType: BookFormatType.Physical,
+            stock: { gte: item.quantity },
+          },
+          data: {
+            stock: { decrement: item.quantity },
+          },
+        });
+
+        if (result.count !== 1) {
+          throw new ConflictException('Book stock is insufficient.');
+        }
+      }
+    }
+  }
+
+  private async releasePhysicalStockReservation(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<void> {
+    const orderItems = await tx.orderItem.findMany({
+      where: {
+        orderId,
+        itemType: { in: [OrderItemType.PRODUCT, OrderItemType.BOOK] },
+      },
+      select: {
+        itemType: true,
+        itemId: true,
+        quantity: true,
+      },
+    });
+    const bookFormatIds = orderItems
+      .filter((item) => item.itemType === OrderItemType.BOOK)
+      .map((item) => item.itemId);
+    const physicalBookFormatIds =
+      bookFormatIds.length === 0
+        ? new Set<string>()
+        : new Set(
+            (
+              await tx.bookFormat.findMany({
+                where: {
+                  id: { in: bookFormatIds },
+                  formatType: BookFormatType.Physical,
+                },
+                select: { id: true },
+              })
+            ).map((bookFormat) => bookFormat.id),
+          );
+
+    await Promise.all(
+      orderItems.map((item) => {
+        if (item.itemType === OrderItemType.PRODUCT) {
+          return tx.product.update({
+            where: { id: item.itemId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+
+        if (physicalBookFormatIds.has(item.itemId)) {
+          return tx.bookFormat.update({
+            where: { id: item.itemId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+
+        return Promise.resolve();
+      }),
+    );
+  }
+
   private uniqueItemIds(
     cartItems: CartItemRecord[],
     itemType: CartItemType,
@@ -1153,6 +1291,7 @@ export class OrdersService {
   }
 
   private assertNever(value: never): never {
-    throw new BadRequestException(`Unsupported order catalog item: ${value}`);
+    void value;
+    throw new BadRequestException('Unsupported order catalog item.');
   }
 }

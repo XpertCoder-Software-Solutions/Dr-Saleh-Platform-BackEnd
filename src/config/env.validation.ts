@@ -1,22 +1,41 @@
+import {
+  DEFAULT_PRISMA_QUERY_TIMEOUT_MS,
+  MIN_PRISMA_QUERY_TIMEOUT_MS,
+} from './database.config';
+
 const nodeEnvironments = ['development', 'test', 'production'] as const;
 const logLevels = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const;
 const referralRewardTypes = ['PERCENTAGE', 'FIXED_AMOUNT'] as const;
+const databaseSslModes = [
+  'disable',
+  'allow',
+  'prefer',
+  'require',
+  'verify-ca',
+  'verify-full',
+  'no-verify',
+] as const;
 
 type NodeEnv = (typeof nodeEnvironments)[number];
 type LogLevel = (typeof logLevels)[number];
 type ReferralRewardType = (typeof referralRewardTypes)[number];
+type DatabaseSslMode = (typeof databaseSslModes)[number];
 
 export type ValidatedEnvironment = {
   NODE_ENV: NodeEnv;
   PORT: string;
   API_PREFIX: string;
   LOG_LEVEL: LogLevel;
+  SWAGGER_ENABLED: string;
   DATABASE_URL: string;
+  DATABASE_SSL_MODE?: DatabaseSslMode | '';
+  PRISMA_QUERY_TIMEOUT_MS: string;
   APP_PUBLIC_URL: string;
   APP_PLATFORM_URL: string;
   BRAND_LOGO_PATH: string;
   BRAND_NAME: string;
   SUPPORT_EMAIL: string;
+  ADMIN_NOTIFICATION_EMAIL?: string;
   BREVO_API_KEY: string;
   BREVO_SENDER_NAME: string;
   BREVO_SENDER_EMAIL: string;
@@ -38,8 +57,12 @@ export type ValidatedEnvironment = {
   AWS_S3_BUCKET_NAME?: string;
   AWS_ACCESS_KEY_ID?: string;
   AWS_SECRET_ACCESS_KEY?: string;
+  AWS_SESSION_TOKEN?: string;
   AWS_S3_ENDPOINT?: string;
   AWS_S3_FORCE_PATH_STYLE?: string;
+  CLOUDFRONT_DOMAIN?: string;
+  CLOUDFRONT_KEY_PAIR_ID?: string;
+  CLOUDFRONT_PRIVATE_KEY?: string;
   FAWRY_BASE_URL?: string;
   FAWRY_MERCHANT_CODE?: string;
   FAWRY_SECURITY_KEY?: string;
@@ -77,6 +100,20 @@ export function validateEnv(
     config.DATABASE_URL,
     errors,
   );
+  const databaseSslMode = toOptionalEnum(
+    'DATABASE_SSL_MODE',
+    config.DATABASE_SSL_MODE,
+    databaseSslModes,
+    errors,
+  );
+  const prismaQueryTimeoutMs = toIntegerString(
+    'PRISMA_QUERY_TIMEOUT_MS',
+    config.PRISMA_QUERY_TIMEOUT_MS,
+    DEFAULT_PRISMA_QUERY_TIMEOUT_MS,
+    MIN_PRISMA_QUERY_TIMEOUT_MS,
+    Number.MAX_SAFE_INTEGER,
+    errors,
+  );
   const appPublicUrl = requiredString(
     'APP_PUBLIC_URL',
     config.APP_PUBLIC_URL,
@@ -97,6 +134,9 @@ export function validateEnv(
     'SUPPORT_EMAIL',
     config.SUPPORT_EMAIL,
     errors,
+  );
+  const adminNotificationEmail = optionalString(
+    config.ADMIN_NOTIFICATION_EMAIL,
   );
   const brevoApiKey = requiredString(
     'BREVO_API_KEY',
@@ -155,12 +195,60 @@ export function validateEnv(
     errors.push('SUPPORT_EMAIL must be a valid email address.');
   }
 
+  if (
+    adminNotificationEmail.length > 0 &&
+    !isEmailLike(adminNotificationEmail)
+  ) {
+    errors.push('ADMIN_NOTIFICATION_EMAIL must be a valid email address.');
+  }
+
   if (brevoSenderEmail.length > 0 && !isEmailLike(brevoSenderEmail)) {
     errors.push('BREVO_SENDER_EMAIL must be a valid email address.');
   }
 
   if (nodeEnv === 'production' && corsAllowedOrigins.length === 0) {
     errors.push('CORS_ALLOWED_ORIGINS is required in production.');
+  }
+
+  if (
+    nodeEnv === 'production' &&
+    parseCommaSeparatedValues(corsAllowedOrigins).includes('*')
+  ) {
+    errors.push('CORS_ALLOWED_ORIGINS cannot include "*" in production.');
+  }
+
+  const cloudFrontDomain = optionalString(config.CLOUDFRONT_DOMAIN);
+  const cloudFrontKeyPairId = optionalString(config.CLOUDFRONT_KEY_PAIR_ID);
+  const cloudFrontPrivateKey = optionalString(config.CLOUDFRONT_PRIVATE_KEY);
+
+  if (nodeEnv === 'production') {
+    if (cloudFrontDomain.length === 0) {
+      errors.push('CLOUDFRONT_DOMAIN is required.');
+    }
+
+    if (
+      cloudFrontDomain.length > 0 &&
+      !isCloudFrontDomainLike(cloudFrontDomain)
+    ) {
+      errors.push('CLOUDFRONT_DOMAIN must be a valid domain.');
+    }
+
+    if (cloudFrontKeyPairId.length === 0) {
+      errors.push('CLOUDFRONT_KEY_PAIR_ID is required.');
+    }
+
+    if (cloudFrontPrivateKey.length === 0) {
+      errors.push('CLOUDFRONT_PRIVATE_KEY is required.');
+    }
+
+    if (
+      cloudFrontPrivateKey.length > 0 &&
+      !isPrivateKeyHeaderLike(cloudFrontPrivateKey)
+    ) {
+      errors.push(
+        'CLOUDFRONT_PRIVATE_KEY must include BEGIN RSA PRIVATE KEY or BEGIN PRIVATE KEY.',
+      );
+    }
   }
 
   const fawryBaseUrl = optionalString(config.FAWRY_BASE_URL);
@@ -211,12 +299,19 @@ export function validateEnv(
     PORT: toIntegerString('PORT', config.PORT, 3000, 1, 65_535, errors),
     API_PREFIX: optionalString(config.API_PREFIX, 'api'),
     LOG_LEVEL: logLevel,
+    SWAGGER_ENABLED:
+      nodeEnv === 'production'
+        ? 'false'
+        : toBooleanString(config.SWAGGER_ENABLED, true, errors),
     DATABASE_URL: databaseUrl,
+    DATABASE_SSL_MODE: databaseSslMode,
+    PRISMA_QUERY_TIMEOUT_MS: prismaQueryTimeoutMs,
     APP_PUBLIC_URL: appPublicUrl,
     APP_PLATFORM_URL: appPlatformUrl,
     BRAND_LOGO_PATH: brandLogoPath,
     BRAND_NAME: brandName,
     SUPPORT_EMAIL: supportEmail,
+    ADMIN_NOTIFICATION_EMAIL: adminNotificationEmail,
     BREVO_API_KEY: brevoApiKey,
     BREVO_SENDER_NAME: brevoSenderName,
     BREVO_SENDER_EMAIL: brevoSenderEmail,
@@ -266,12 +361,16 @@ export function validateEnv(
     AWS_S3_BUCKET_NAME: optionalString(config.AWS_S3_BUCKET_NAME),
     AWS_ACCESS_KEY_ID: optionalString(config.AWS_ACCESS_KEY_ID),
     AWS_SECRET_ACCESS_KEY: optionalString(config.AWS_SECRET_ACCESS_KEY),
+    AWS_SESSION_TOKEN: optionalString(config.AWS_SESSION_TOKEN),
     AWS_S3_ENDPOINT: optionalString(config.AWS_S3_ENDPOINT),
     AWS_S3_FORCE_PATH_STYLE: toBooleanString(
       config.AWS_S3_FORCE_PATH_STYLE,
       false,
       errors,
     ),
+    CLOUDFRONT_DOMAIN: cloudFrontDomain,
+    CLOUDFRONT_KEY_PAIR_ID: cloudFrontKeyPairId,
+    CLOUDFRONT_PRIVATE_KEY: cloudFrontPrivateKey,
     FAWRY_BASE_URL: fawryBaseUrl,
     FAWRY_MERCHANT_CODE: optionalString(config.FAWRY_MERCHANT_CODE),
     FAWRY_SECURITY_KEY: optionalString(config.FAWRY_SECURITY_KEY),
@@ -318,6 +417,13 @@ function optionalString(value: unknown, defaultValue = ''): string {
   return typeof value === 'string' && value.length > 0 ? value : defaultValue;
 }
 
+function parseCommaSeparatedValues(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 function isEmailLike(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -329,6 +435,44 @@ function isUrlLike(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isCloudFrontDomainLike(value: string): boolean {
+  let hostname = value.trim();
+
+  if (/^https?:\/\//i.test(hostname)) {
+    try {
+      const url = new URL(hostname);
+
+      if (
+        url.pathname !== '/' ||
+        url.search.length > 0 ||
+        url.hash.length > 0
+      ) {
+        return false;
+      }
+
+      hostname = url.hostname;
+    } catch {
+      return false;
+    }
+  }
+
+  const labels = hostname.split('.');
+
+  return (
+    labels.length > 1 &&
+    labels.every((label) =>
+      /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(label),
+    )
+  );
+}
+
+function isPrivateKeyHeaderLike(value: string): boolean {
+  return (
+    value.includes('BEGIN RSA PRIVATE KEY') ||
+    value.includes('BEGIN PRIVATE KEY')
+  );
 }
 
 function toIntegerString(
@@ -398,6 +542,26 @@ function toEnum<T extends readonly string[]>(
   if (!allowedValues.includes(rawValue)) {
     errors.push(`${name} must be one of: ${allowedValues.join(', ')}.`);
     return defaultValue;
+  }
+
+  return rawValue;
+}
+
+function toOptionalEnum<T extends readonly string[]>(
+  name: string,
+  value: unknown,
+  allowedValues: T,
+  errors: string[],
+): T[number] | '' {
+  const rawValue = optionalString(value);
+
+  if (rawValue.length === 0) {
+    return '';
+  }
+
+  if (!allowedValues.includes(rawValue)) {
+    errors.push(`${name} must be one of: ${allowedValues.join(', ')}.`);
+    return '';
   }
 
   return rawValue;

@@ -1,7 +1,14 @@
 node_modules
 dist
+dist 2
 coverage
 .git
 .github
 .env
+.env.*
+!.env.example
 *.log
+uploads
+.DS_Store
+test-brevo.js
+docs

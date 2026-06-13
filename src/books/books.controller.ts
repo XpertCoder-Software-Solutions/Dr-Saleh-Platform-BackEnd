@@ -12,6 +12,7 @@ import {
   Post,
   UploadedFile,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import {
@@ -21,18 +22,28 @@ import {
 } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { randomUUID } from 'crypto';
 import { mkdirSync } from 'fs';
 import { extname, join } from 'path';
 import { diskStorage } from 'multer';
+import { AdminGuard } from '../auth/admin.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { BooksService } from './books.service';
 import { CreateBookDto } from './dto/create-book.dto';
 import { CreateBookFormatDto } from './dto/create-book-format.dto';
@@ -119,6 +130,13 @@ export class BooksController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @AuditAction({
+    action: AuditActions.BookCreated,
+    entityType: AuditEntityTypes.Book,
+    entityIdResponsePath: 'data.book.id',
+    description: 'Admin created a book.',
+  })
   @UseInterceptors(
     FileInterceptor('coverImage', {
       storage: imageDiskStorage(bookCoversUploadDirectory),
@@ -126,11 +144,14 @@ export class BooksController {
       fileFilter: imageFileFilter,
     }),
   )
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a book with a required cover image.' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: createBookMultipartSchema(true) })
   @ApiCreatedResponse({ description: 'Book created successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid book data or cover image.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   create(
     @Body() createBookDto: CreateBookDto,
     @UploadedFile() coverImage?: Express.Multer.File,
@@ -146,6 +167,13 @@ export class BooksController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @AuditAction({
+    action: AuditActions.BookUpdated,
+    entityType: AuditEntityTypes.Book,
+    entityIdParam: 'id',
+    description: 'Admin updated a book.',
+  })
   @UseInterceptors(
     FileInterceptor('coverImage', {
       storage: imageDiskStorage(bookCoversUploadDirectory),
@@ -153,6 +181,7 @@ export class BooksController {
       fileFilter: imageFileFilter,
     }),
   )
+  @ApiBearerAuth()
   @ApiOperation({
     summary:
       'Update a book. Existing cover remains when coverImage is omitted.',
@@ -162,6 +191,8 @@ export class BooksController {
   @ApiOkResponse({ description: 'Book updated successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid book data or cover image.' })
   @ApiNotFoundResponse({ description: 'Book not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateBookDto: UpdateBookDto,
@@ -176,15 +207,26 @@ export class BooksController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @AuditAction({
+    action: AuditActions.BookDeleted,
+    entityType: AuditEntityTypes.Book,
+    entityIdParam: 'id',
+    description: 'Admin deleted a book.',
+  })
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Hard delete one book.' })
   @ApiOkResponse({ description: 'Book deleted successfully.' })
   @ApiNotFoundResponse({ description: 'Book not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   delete(@Param('id', ParseUUIDPipe) id: string) {
     return this.booksService.delete(id);
   }
 
   @Post(':id/images')
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @UseInterceptors(
     FilesInterceptor('images', 20, {
       storage: imageDiskStorage(bookImagesUploadDirectory),
@@ -192,6 +234,7 @@ export class BooksController {
       fileFilter: imageFileFilter,
     }),
   )
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Upload gallery images for one book.' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -216,6 +259,8 @@ export class BooksController {
   @ApiCreatedResponse({ description: 'Book images uploaded successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid image upload.' })
   @ApiNotFoundResponse({ description: 'Book not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   addImages(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() createBookImagesDto: CreateBookImagesDto,
@@ -233,9 +278,13 @@ export class BooksController {
   }
 
   @Patch('images/:imageId')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update one book gallery image display order.' })
   @ApiOkResponse({ description: 'Book image updated successfully.' })
   @ApiNotFoundResponse({ description: 'Book image not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   updateImage(
     @Param('imageId', ParseUUIDPipe) imageId: string,
     @Body() updateBookImageDto: UpdateBookImageDto,
@@ -245,15 +294,20 @@ export class BooksController {
 
   @Delete('images/:imageId')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete one book gallery image.' })
   @ApiOkResponse({ description: 'Book image deleted successfully.' })
   @ApiNotFoundResponse({ description: 'Book image not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   deleteImage(@Param('imageId', ParseUUIDPipe) imageId: string) {
     return this.booksService.deleteImage(imageId);
   }
 
   @Post(':id/formats')
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -267,12 +321,15 @@ export class BooksController {
       },
     ),
   )
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a book format.' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: createBookFormatMultipartSchema(true) })
   @ApiCreatedResponse({ description: 'Book format created successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid book format data.' })
   @ApiNotFoundResponse({ description: 'Book not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   createFormat(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() createBookFormatDto: CreateBookFormatDto,
@@ -286,6 +343,7 @@ export class BooksController {
   }
 
   @Patch('formats/:formatId')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -299,12 +357,15 @@ export class BooksController {
       },
     ),
   )
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a book format.' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: createBookFormatMultipartSchema(false) })
   @ApiOkResponse({ description: 'Book format updated successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid book format data.' })
   @ApiNotFoundResponse({ description: 'Book format not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   updateFormat(
     @Param('formatId', ParseUUIDPipe) formatId: string,
     @Body() updateBookFormatDto: UpdateBookFormatDto,
@@ -319,9 +380,13 @@ export class BooksController {
 
   @Delete('formats/:formatId')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete one book format.' })
   @ApiOkResponse({ description: 'Book format deleted successfully.' })
   @ApiNotFoundResponse({ description: 'Book format not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   deleteFormat(@Param('formatId', ParseUUIDPipe) formatId: string) {
     return this.booksService.deleteFormat(formatId);
   }

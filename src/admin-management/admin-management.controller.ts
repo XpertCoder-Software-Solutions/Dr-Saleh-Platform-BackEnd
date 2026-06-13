@@ -25,6 +25,11 @@ import {
 } from '@nestjs/swagger';
 import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AdminManagementService } from './admin-management.service';
 import { AdminQueryDto } from './dto/admin-query.dto';
@@ -76,6 +81,13 @@ export class AdminManagementController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @AuditAction({
+    action: AuditActions.AdminCreated,
+    entityType: AuditEntityTypes.Admin,
+    entityIdResponsePath: 'data.admin.id',
+    description: 'Admin created another admin.',
+    includeBody: false,
+  })
   @ApiOperation({
     summary: 'Admin: create another admin.',
     description:
@@ -96,6 +108,13 @@ export class AdminManagementController {
   }
 
   @Patch(':id')
+  @AuditAction({
+    action: AuditActions.AdminUpdated,
+    entityType: AuditEntityTypes.Admin,
+    entityIdParam: 'id',
+    description: 'Admin updated an admin.',
+    includeBody: false,
+  })
   @ApiOperation({
     summary: 'Admin: update one admin.',
     description:

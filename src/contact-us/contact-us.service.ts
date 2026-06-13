@@ -1,11 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   buildPaginationMeta,
   getPaginationParams,
 } from '../common/utils/pagination';
 import { PrismaService } from '../database/prisma.service';
-import { BrevoEmailService } from '../email/brevo-email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AdminContactQueryDto } from './dto/admin-contact-query.dto';
 import { CreateContactMessageDto } from './dto/create-contact-message.dto';
 
@@ -28,11 +28,9 @@ type EmptyData = Record<string, never>;
 
 @Injectable()
 export class ContactUsService {
-  private readonly logger = new Logger(ContactUsService.name);
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly brevoEmailService: BrevoEmailService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async submit(
@@ -52,7 +50,10 @@ export class ContactUsService {
       },
     });
 
-    await this.sendConfirmationEmail(contactMessage.email, contactMessage.name);
+    await this.notificationsService.sendContactMessageReceived({
+      email: contactMessage.email,
+      fullName: contactMessage.name,
+    });
 
     return {
       message:
@@ -80,7 +81,7 @@ export class ContactUsService {
       message: 'Contact messages returned successfully',
       data: {
         messages: messages.map((message) => this.toContactMessage(message)),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -137,20 +138,6 @@ export class ContactUsService {
     }
 
     return where;
-  }
-
-  private async sendConfirmationEmail(
-    email: string,
-    name: string,
-  ): Promise<void> {
-    try {
-      await this.brevoEmailService.sendContactMessageConfirmation(email, name);
-    } catch (error) {
-      this.logger.error(
-        `Failed to send contact message confirmation email to ${email}.`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    }
   }
 
   private normalizeEmail(email: string): string {

@@ -26,6 +26,11 @@ import {
 } from '@nestjs/swagger';
 import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { CoursesService } from './courses.service';
 import { AdminCourseQueryDto } from './dto/course-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -40,6 +45,12 @@ export class AdminCoursesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @AuditAction({
+    action: AuditActions.CourseCreated,
+    entityType: AuditEntityTypes.Course,
+    entityIdResponsePath: 'data.course.id',
+    description: 'Admin created a course.',
+  })
   @ApiOperation({ summary: 'Admin: create a course.' })
   @ApiCreatedResponse({ description: 'Course created successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid course data.' })
@@ -73,6 +84,12 @@ export class AdminCoursesController {
   }
 
   @Patch(':id')
+  @AuditAction({
+    action: AuditActions.CourseUpdated,
+    entityType: AuditEntityTypes.Course,
+    entityIdParam: 'id',
+    description: 'Admin updated a course.',
+  })
   @ApiOperation({ summary: 'Admin: update one course.' })
   @ApiOkResponse({ description: 'Course updated successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid course data.' })
@@ -88,6 +105,12 @@ export class AdminCoursesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
+  @AuditAction({
+    action: AuditActions.CourseDeleted,
+    entityType: AuditEntityTypes.Course,
+    entityIdParam: 'id',
+    description: 'Admin deleted a course.',
+  })
   @ApiOperation({ summary: 'Admin: hard delete one course.' })
   @ApiOkResponse({ description: 'Course deleted successfully.' })
   @ApiConflictResponse({ description: 'Course has dependent records.' })

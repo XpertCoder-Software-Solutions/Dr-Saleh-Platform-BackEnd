@@ -4,9 +4,15 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiErrorResponse } from '../responses/api-response.interface';
+import {
+  getSafeExceptionDetails,
+  getSafeRequestDetails,
+} from '../utils/safe-logging';
+import { isPrismaDatabaseTimeoutError } from '../utils/prisma-errors';
 
 type NormalizedException = {
   statusCode: number;
@@ -16,18 +22,34 @@ type NormalizedException = {
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const response = context.getResponse<Response>();
     const request = context.getRequest<Request>();
     const normalizedException = this.normalizeException(exception);
+    const exceptionDetails = getSafeExceptionDetails(exception);
+    const requestDetails = getSafeRequestDetails(request);
+
+    this.logger.error(
+      [
+        'HTTP exception captured',
+        `name=${exceptionDetails.name}`,
+        `message=${exceptionDetails.message}`,
+        `method=${requestDetails.method}`,
+        `url=${requestDetails.url}`,
+        `statusCode=${normalizedException.statusCode}`,
+      ].join(' '),
+      exceptionDetails.stack,
+    );
 
     const body: ApiErrorResponse = {
       success: false,
       message: normalizedException.message,
       statusCode: normalizedException.statusCode,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path: requestDetails.url,
       errors: normalizedException.errors,
     };
 
@@ -35,6 +57,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
   }
 
   private normalizeException(exception: unknown): NormalizedException {
+    if (isPrismaDatabaseTimeoutError(exception)) {
+      return {
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        message: 'Database request timed out',
+        errors: [],
+      };
+    }
+
     if (exception instanceof HttpException) {
       return this.normalizeHttpException(exception);
     }

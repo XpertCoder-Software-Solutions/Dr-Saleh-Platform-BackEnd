@@ -6,7 +6,9 @@ export class UpdateOrderStatusDto {
   @ApiPropertyOptional({
     enum: OrderStatus,
     enumName: 'OrderStatus',
-    example: OrderStatus.PAID,
+    example: OrderStatus.CANCELLED,
+    description:
+      'Admin status updates cannot manually set PAID. Verified payment providers set PAID.',
   })
   @IsOptional()
   @IsEnum(OrderStatus)
@@ -15,7 +17,9 @@ export class UpdateOrderStatusDto {
   @ApiPropertyOptional({
     enum: PaymentStatus,
     enumName: 'PaymentStatus',
-    example: PaymentStatus.PAID,
+    example: PaymentStatus.CANCELLED,
+    description:
+      'Admin payment status updates cannot manually set PAID. Verified payment providers set PAID.',
   })
   @IsOptional()
   @IsEnum(PaymentStatus)

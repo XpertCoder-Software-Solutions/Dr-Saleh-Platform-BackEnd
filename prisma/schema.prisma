@@ -6,6 +6,992 @@ datasource db {
   provider = "postgresql"
 }
 
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        RoleName @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                            String               @id @default(uuid()) @db.Uuid
+  roleId                        String               @db.Uuid
+  fullName                      String
+  email                         String               @unique
+  phoneNumber                   String               @unique
+  passwordHash                  String
+  profileImage                  String?
+  isEmailVerified               Boolean              @default(false)
+  isPhoneVerified               Boolean              @default(false)
+  lastLoginAt                   DateTime?
+  isActive                      Boolean              @default(true)
+  createdAt                     DateTime             @default(now())
+  updatedAt                     DateTime             @updatedAt
+  emailVerificationAttempts     Int                  @default(0)
+  emailVerificationOtpExpiresAt DateTime?
+  emailVerificationOtpHash      String?
+  emailVerificationOtpSentAt    DateTime?
+  emailVerifiedAt               DateTime?
+  hashedRefreshToken            String?
+  passwordResetAttempts         Int                  @default(0)
+  passwordResetOtpExpiresAt     DateTime?
+  passwordResetOtpHash          String?
+  passwordResetOtpSentAt        DateTime?
+  dateOfBirth                   DateTime?
+  firstName                     String?
+  gender                        Gender?
+  lastName                      String?
+  phoneVerifiedAt               DateTime?
+  referralCode                  String?              @unique
+  referredByUserId              String?              @db.Uuid
+  bookReviews                   BookReview[]
+  cart                          Cart?
+  certificates                  Certificate[]
+  contentSessions               ContentSession[]
+  couponUsages                  CouponUsage[]
+  courseReviews                 CourseReview[]
+  emailOtps                     EmailOtp[]
+  orders                        Order[]
+  notificationLogs              NotificationLog[]
+  passwordResetTokens           PasswordResetToken[]
+  payments                      Payment[]
+  referralReceived              Referral?            @relation("ReferredUser")
+  referralsSent                 Referral[]           @relation("ReferrerUser")
+  refreshTokens                 RefreshToken[]
+  addresses                     UserAddress[]
+  userBooks                     UserBook[]
+  userCourses                   UserCourse[]
+  userDevices                   UserDevice[]
+  userLessonProgress            UserLessonProgress[]
+  referredBy                    User?                @relation("UserReferralTree", fields: [referredByUserId], references: [id])
+  referredUsers                 User[]               @relation("UserReferralTree")
+  role                          Role                 @relation(fields: [roleId], references: [id])
+  wishlists                     Wishlist[]
+
+  @@index([roleId])
+  @@index([referredByUserId])
+  @@map("users")
+}
+
+model UserAddress {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  governorateId  String?      @db.Uuid
+  label          String?
+  fullName       String
+  phoneNumber    String
+  addressLine1   String?
+  addressLine2   String?
+  city           String
+  postalCode     String?
+  country        String       @default("EG")
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  cityId         String?      @db.Uuid
+  countryId      String?      @db.Uuid
+  latitude       Decimal?     @db.Decimal(9, 6)
+  longitude      Decimal?     @db.Decimal(9, 6)
+  notes          String?
+  state          String?
+  street         String?
+  buildingNumber String?
+  floor          String?
+  apartment      String?
+  landmark       String?
+  orders         Order[]
+  addressCity    City?        @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  addressCountry Country?     @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  governorate    Governorate? @relation(fields: [governorateId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([countryId])
+  @@index([cityId])
+  @@index([governorateId])
+  @@map("user_addresses")
+}
+
+model Country {
+  id            String        @id @default(uuid()) @db.Uuid
+  nameAr        String
+  nameEn        String
+  isoCode       String        @unique
+  phoneCode     String
+  currencyCode  String
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  cities        City[]
+  userAddresses UserAddress[]
+
+  @@map("countries")
+}
+
+model City {
+  id            String        @id @default(uuid()) @db.Uuid
+  countryId     String        @db.Uuid
+  nameAr        String
+  nameEn        String
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  country       Country       @relation(fields: [countryId], references: [id])
+  userAddresses UserAddress[]
+
+  @@unique([countryId, nameEn])
+  @@index([countryId])
+  @@map("cities")
+}
+
+model EmailOtp {
+  id            String     @id @default(uuid()) @db.Uuid
+  userId        String?    @db.Uuid
+  email         String
+  purpose       OtpPurpose
+  codeHash      String
+  expiresAt     DateTime
+  verifiedAt    DateTime?
+  consumedAt    DateTime?
+  attemptsCount Int        @default(0)
+  createdAt     DateTime   @default(now())
+  user          User?      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([email, purpose])
+  @@index([email, purpose, expiresAt])
+  @@map("email_otps")
+}
+
+model RefreshToken {
+  id           String      @id @default(uuid()) @db.Uuid
+  userId       String      @db.Uuid
+  userDeviceId String?     @db.Uuid
+  tokenHash    String      @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  userDevice   UserDevice? @relation(fields: [userDeviceId], references: [id])
+  user         User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userDeviceId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model UserDevice {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @db.Uuid
+  deviceType       DeviceType
+  deviceIdentifier String
+  deviceName       String?
+  pushToken        String?
+  lastSeenAt       DateTime?
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  contentSessions  ContentSession[]
+  refreshTokens    RefreshToken[]
+  user             User             @relation(fields: [userId], references: [id])
+
+  @@unique([userId, deviceIdentifier])
+  @@index([userId])
+  @@map("user_devices")
+}
+
+model ContentSession {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @db.Uuid
+  userDeviceId   String      @db.Uuid
+  contentType    ContentType
+  lessonId       String?     @db.Uuid
+  bookFormatId   String?     @db.Uuid
+  sessionKey     String      @unique
+  startedAt      DateTime    @default(now())
+  lastActivityAt DateTime    @default(now())
+  expiresAt      DateTime
+  endedAt        DateTime?
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  bookFormat     BookFormat? @relation(fields: [bookFormatId], references: [id])
+  lesson         Lesson?     @relation(fields: [lessonId], references: [id])
+  userDevice     UserDevice  @relation(fields: [userDeviceId], references: [id])
+  user           User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userDeviceId])
+  @@index([lessonId])
+  @@index([bookFormatId])
+  @@index([userId, isActive])
+  @@map("content_sessions")
+}
+
+model CourseCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  nameAr    String
+  nameEn    String
+  image     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  courses   Course[]
+
+  @@index([isActive])
+  @@map("course_categories")
+}
+
+model Course {
+  id                 String          @id @default(uuid()) @db.Uuid
+  categoryId         String          @db.Uuid
+  titleAr            String
+  titleEn            String
+  shortDescriptionAr String
+  shortDescriptionEn String
+  descriptionAr      String
+  descriptionEn      String
+  thumbnailImage     String?
+  promoVideoUrl      String?
+  priceEGP           Decimal         @db.Decimal(12, 2)
+  priceUSD           Decimal         @db.Decimal(12, 2)
+  discountPriceEGP   Decimal?        @db.Decimal(12, 2)
+  discountPriceUSD   Decimal?        @db.Decimal(12, 2)
+  isHomeDisplay      Boolean         @default(false)
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  certificateEnabled Boolean         @default(false)
+  isFeatured         Boolean         @default(false)
+  certificates       Certificate[]
+  reviews            CourseReview[]
+  sections           CourseSection[]
+  category           CourseCategory  @relation(fields: [categoryId], references: [id])
+  userCourses        UserCourse[]
+
+  @@index([categoryId])
+  @@index([categoryId, isActive])
+  @@index([isActive, createdAt])
+  @@index([isFeatured])
+  @@index([isHomeDisplay])
+  @@map("courses")
+}
+
+model CourseSection {
+  id           String   @id @default(uuid()) @db.Uuid
+  courseId     String   @db.Uuid
+  titleAr      String
+  titleEn      String
+  displayOrder Int
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  course       Course   @relation(fields: [courseId], references: [id])
+  lessons      Lesson[]
+
+  @@unique([courseId, displayOrder])
+  @@index([courseId])
+  @@index([isActive])
+  @@map("course_sections")
+}
+
+model Lesson {
+  id                   String               @id @default(uuid()) @db.Uuid
+  sectionId            String               @db.Uuid
+  titleAr              String
+  titleEn              String
+  videoKey             String?
+  videoDurationSeconds Int?
+  displayOrder         Int
+  isPreview            Boolean              @default(false)
+  isActive             Boolean              @default(true)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  lessonType           LessonType
+  pdfKey               String?
+  contentSession       ContentSession[]
+  section              CourseSection        @relation(fields: [sectionId], references: [id])
+  userProgress         UserLessonProgress[]
+
+  @@unique([sectionId, displayOrder])
+  @@index([sectionId])
+  @@index([lessonType])
+  @@index([isPreview])
+  @@index([isActive])
+  @@map("lessons")
+}
+
+model UserCourse {
+  id                   String    @id @default(uuid()) @db.Uuid
+  userId               String    @db.Uuid
+  courseId             String    @db.Uuid
+  purchasedAt          DateTime  @default(now())
+  startedAt            DateTime?
+  completedAt          DateTime?
+  completionPercentage Decimal   @default(0) @db.Decimal(5, 2)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  course               Course    @relation(fields: [courseId], references: [id])
+  user                 User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([purchasedAt])
+  @@map("user_courses")
+}
+
+model UserLessonProgress {
+  id                   String    @id @default(uuid()) @db.Uuid
+  watchedSeconds       Int       @default(0)
+  isCompleted          Boolean   @default(false)
+  lastWatchedAt        DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  userId               String    @db.Uuid
+  lessonId             String    @db.Uuid
+  completionPercentage Decimal   @default(0) @db.Decimal(5, 2)
+  lesson               Lesson    @relation(fields: [lessonId], references: [id])
+  user                 User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+  @@index([isCompleted])
+  @@map("user_lesson_progress")
+}
+
+model CourseReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  courseId  String   @db.Uuid
+  rating    Int      @db.SmallInt
+  title     String?
+  comment   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  course    Course   @relation(fields: [courseId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([isActive])
+  @@map("course_reviews")
+}
+
+model Certificate {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  courseId          String   @db.Uuid
+  certificateNumber String   @unique
+  issuedAt          DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  course            Course   @relation(fields: [courseId], references: [id])
+  user              User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([issuedAt])
+  @@map("certificates")
+}
+
+model BookCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  nameAr    String
+  nameEn    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  books     Book[]
+
+  @@map("book_categories")
+}
+
+model Book {
+  id               String       @id @default(uuid()) @db.Uuid
+  bookCategoryId   String       @db.Uuid
+  slug             String       @unique
+  titleAr          String
+  titleEn          String
+  descriptionAr    String
+  descriptionEn    String
+  coverImage       String
+  priceEgp         Decimal      @db.Decimal(12, 2)
+  priceUsd         Decimal      @db.Decimal(12, 2)
+  discountPriceEgp Decimal?     @db.Decimal(12, 2)
+  discountPriceUsd Decimal?     @db.Decimal(12, 2)
+  isHomeDisplay    Boolean      @default(false)
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  isFeatured       Boolean      @default(false)
+  bookFormats      BookFormat[]
+  bookImages       BookImage[]
+  bookReviews      BookReview[]
+  bookCategory     BookCategory @relation(fields: [bookCategoryId], references: [id])
+
+  @@index([bookCategoryId])
+  @@index([isHomeDisplay])
+  @@map("books")
+}
+
+model BookImage {
+  id           String   @id @default(uuid()) @db.Uuid
+  bookId       String   @db.Uuid
+  imageUrl     String
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  book         Book     @relation(fields: [bookId], references: [id])
+
+  @@index([bookId])
+  @@map("book_images")
+}
+
+model BookFormat {
+  id               String           @id @default(uuid()) @db.Uuid
+  bookId           String           @db.Uuid
+  formatType       BookFormatType
+  sku              String?          @unique
+  stock            Int?
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  weight           Decimal?         @db.Decimal(8, 2)
+  priceEgp         Decimal?         @db.Decimal(12, 2)
+  discountPriceEgp Decimal?         @db.Decimal(12, 2)
+  priceUsd         Decimal?         @db.Decimal(12, 2)
+  discountPriceUsd Decimal?         @db.Decimal(12, 2)
+  readerFile       String?
+  audioFile        String?
+  audioDuration    Int?
+  book             Book             @relation(fields: [bookId], references: [id])
+  contentSessions  ContentSession[]
+  userBooks        UserBook[]
+
+  @@unique([bookId, formatType])
+  @@index([bookId])
+  @@map("book_formats")
+}
+
+model BookReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  bookId    String   @db.Uuid
+  rating    Int      @db.SmallInt
+  title     String?
+  comment   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  book      Book     @relation(fields: [bookId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@index([bookId])
+  @@map("book_reviews")
+}
+
+model ProductCategory {
+  id        String    @id @default(uuid()) @db.Uuid
+  nameAr    String
+  nameEn    String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id               String          @id @default(uuid()) @db.Uuid
+  categoryId       String          @db.Uuid
+  slug             String          @unique
+  sku              String?         @unique
+  nameAr           String
+  nameEn           String
+  descriptionAr    String
+  descriptionEn    String
+  stock            Int             @default(0)
+  priceEgp         Decimal         @db.Decimal(12, 2)
+  priceUsd         Decimal         @db.Decimal(12, 2)
+  discountPriceEgp Decimal?        @db.Decimal(12, 2)
+  discountPriceUsd Decimal?        @db.Decimal(12, 2)
+  isHomeDisplay    Boolean         @default(false)
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  coverImage       String
+  isFeatured       Boolean         @default(false)
+  images           ProductImage[]
+  category         ProductCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([isActive, createdAt])
+  @@index([isFeatured])
+  @@index([isHomeDisplay])
+  @@map("products")
+}
+
+model ProductImage {
+  id           String   @id @default(uuid()) @db.Uuid
+  productId    String   @db.Uuid
+  imageUrl     String
+  displayOrder Int
+  createdAt    DateTime @default(now())
+  product      Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+model Cart {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @unique @db.Uuid
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+  user      User       @relation(fields: [userId], references: [id])
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String       @id @default(uuid()) @db.Uuid
+  cartId    String       @db.Uuid
+  itemType  CartItemType
+  quantity  Int          @default(1)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  itemId    String       @db.Uuid
+  cart      Cart         @relation(fields: [cartId], references: [id])
+
+  @@unique([cartId, itemType, itemId])
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+model UserBook {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @db.Uuid
+  bookFormatId String     @db.Uuid
+  purchasedAt  DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  bookFormat   BookFormat @relation(fields: [bookFormatId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
+
+  @@unique([userId, bookFormatId])
+  @@index([userId])
+  @@index([bookFormatId])
+  @@index([purchasedAt])
+  @@map("user_books")
+}
+
+model Order {
+  id                  String               @id @default(uuid()) @db.Uuid
+  userId              String               @db.Uuid
+  orderNumber         String               @unique
+  status              OrderStatus          @default(PENDING)
+  paymentStatus       PaymentStatus        @default(PENDING)
+  currency            String
+  couponId            String?              @db.Uuid
+  shippingAddressId   String?              @db.Uuid
+  subtotal            Decimal              @db.Decimal(12, 2)
+  discountAmount      Decimal              @db.Decimal(12, 2)
+  totalAmount         Decimal              @db.Decimal(12, 2)
+  notes               String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  hasPhysicalItems    Boolean              @default(false)
+  paidAt              DateTime?
+  shippingCost        Decimal              @default(0) @db.Decimal(12, 2)
+  couponUsage         CouponUsage?
+  items               OrderItem[]
+  coupon              Coupon?              @relation(fields: [couponId], references: [id])
+  shippingAddress     UserAddress?         @relation(fields: [shippingAddressId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id])
+  paymentTransactions PaymentTransaction[]
+  payments            Payment[]
+  refunds             Refund[]
+
+  @@index([userId])
+  @@index([couponId])
+  @@index([shippingAddressId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String        @id @default(uuid()) @db.Uuid
+  orderId       String        @db.Uuid
+  itemType      OrderItemType
+  quantity      Int
+  unitPrice     Decimal       @db.Decimal(12, 2)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  itemId        String        @db.Uuid
+  titleAr       String
+  titleEn       String
+  discountPrice Decimal?      @db.Decimal(12, 2)
+  totalPrice    Decimal       @db.Decimal(12, 2)
+  order         Order         @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Governorate {
+  id            String        @id(map: "shipping_governorates_pkey") @default(uuid()) @db.Uuid
+  nameAr        String
+  nameEn        String
+  shippingCost  Decimal       @db.Decimal(12, 2)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  userAddresses UserAddress[]
+
+  @@map("governorates")
+}
+
+model Payment {
+  id                       String               @id @default(uuid()) @db.Uuid
+  orderId                  String               @db.Uuid
+  userId                   String               @db.Uuid
+  provider                 PaymentProvider
+  method                   PaymentMethod
+  status                   PaymentStatus        @default(PENDING)
+  amount                   Decimal              @db.Decimal(12, 2)
+  currency                 String
+  merchantRefNumber        String               @unique
+  providerReferenceNumber  String?              @unique
+  providerPaymentReference String?
+  providerStatus           String?
+  providerResponse         Json?
+  failureReason            String?
+  paidAt                   DateTime?
+  cancelledAt              DateTime?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  paypalOrderId            String?              @unique
+  transactions             PaymentTransaction[]
+  order                    Order                @relation(fields: [orderId], references: [id])
+  user                     User                 @relation(fields: [userId], references: [id])
+
+  @@unique([orderId, provider, method])
+  @@index([orderId])
+  @@index([userId])
+  @@index([provider])
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentTransaction {
+  id                    String          @id @default(uuid()) @db.Uuid
+  orderId               String          @db.Uuid
+  provider              PaymentProvider
+  status                PaymentStatus   @default(PENDING)
+  amount                Decimal         @db.Decimal(12, 2)
+  currency              Currency
+  transactionReference  String          @unique
+  providerTransactionId String?         @unique
+  providerResponse      Json?
+  failureReason         String?
+  paidAt                DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  paymentId             String?         @db.Uuid
+  method                PaymentMethod?
+  order                 Order           @relation(fields: [orderId], references: [id])
+  payment               Payment?        @relation(fields: [paymentId], references: [id])
+  refunds               Refund[]
+
+  @@index([paymentId])
+  @@index([orderId])
+  @@map("payment_transactions")
+}
+
+model Refund {
+  id                   String             @id @default(uuid()) @db.Uuid
+  orderId              String             @db.Uuid
+  paymentTransactionId String             @db.Uuid
+  refundReference      String             @unique
+  providerRefundId     String?            @unique
+  amount               Decimal            @db.Decimal(12, 2)
+  currency             Currency
+  status               PaymentStatus      @default(PENDING)
+  reason               String?
+  processedAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  order                Order              @relation(fields: [orderId], references: [id])
+  paymentTransaction   PaymentTransaction @relation(fields: [paymentTransactionId], references: [id])
+
+  @@index([orderId])
+  @@index([paymentTransactionId])
+  @@map("refunds")
+}
+
+model Coupon {
+  id                    String        @id @default(uuid()) @db.Uuid
+  code                  String        @unique
+  name                  String
+  description           String?
+  type                  CouponType
+  value                 Decimal       @db.Decimal(12, 2)
+  minimumOrderAmount    Decimal?      @db.Decimal(12, 2)
+  maximumDiscountAmount Decimal?      @db.Decimal(12, 2)
+  usageLimit            Int?
+  usedCount             Int           @default(0)
+  startsAt              DateTime
+  expiresAt             DateTime
+  isActive              Boolean       @default(true)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  isReferralCoupon      Boolean       @default(false)
+  couponUsages          CouponUsage[]
+  orders                Order[]
+  referrals             Referral[]
+
+  @@index([code, isActive])
+  @@index([startsAt, expiresAt])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id             String   @id @default(uuid()) @db.Uuid
+  couponId       String   @db.Uuid
+  userId         String   @db.Uuid
+  orderId        String   @unique @db.Uuid
+  discountAmount Decimal  @db.Decimal(12, 2)
+  currency       Currency
+  usedAt         DateTime @default(now())
+  createdAt      DateTime @default(now())
+  coupon         Coupon   @relation(fields: [couponId], references: [id])
+  order          Order    @relation(fields: [orderId], references: [id])
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@index([couponId])
+  @@index([userId])
+  @@index([userId, couponId])
+  @@map("coupon_usages")
+}
+
+model Referral {
+  id             String    @id @default(uuid()) @db.Uuid
+  referrerUserId String    @db.Uuid
+  referredUserId String    @unique @db.Uuid
+  isRewarded     Boolean   @default(false)
+  rewardedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  referralCode   String
+  rewardCouponId String?   @db.Uuid
+  referredUser   User      @relation("ReferredUser", fields: [referredUserId], references: [id])
+  referrerUser   User      @relation("ReferrerUser", fields: [referrerUserId], references: [id])
+  rewardCoupon   Coupon?   @relation(fields: [rewardCouponId], references: [id])
+
+  @@index([referrerUserId])
+  @@index([referredUserId])
+  @@index([rewardCouponId])
+  @@map("referrals")
+}
+
+model Wishlist {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  itemType  WishlistItemType
+  createdAt DateTime         @default(now())
+  itemId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@unique([userId, itemType, itemId])
+  @@index([userId])
+  @@index([itemType])
+  @@map("wishlists")
+}
+
+model ArticleCategory {
+  id        String    @id @default(uuid()) @db.Uuid
+  nameAr    String
+  nameEn    String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  articles  Article[]
+
+  @@map("article_categories")
+}
+
+model Article {
+  id             String               @id @default(uuid()) @db.Uuid
+  categoryId     String               @db.Uuid
+  slug           String               @unique
+  titleAr        String
+  titleEn        String
+  shortContentAr String
+  shortContentEn String
+  contentAr      String
+  contentEn      String
+  coverImage     String
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  viewsCount     Int                  @default(0)
+  isFeatured     Boolean              @default(false)
+  isHomeDisplay  Boolean              @default(false)
+  tagRelations   ArticleTagRelation[]
+  category       ArticleCategory      @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([isActive, createdAt])
+  @@index([isFeatured])
+  @@index([isHomeDisplay])
+  @@map("articles")
+}
+
+model ArticleTag {
+  id           String               @id @default(uuid()) @db.Uuid
+  nameAr       String
+  nameEn       String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  tagRelations ArticleTagRelation[]
+
+  @@map("article_tags")
+}
+
+model ArticleTagRelation {
+  articleId String     @db.Uuid
+  tagId     String     @db.Uuid
+  article   Article    @relation(fields: [articleId], references: [id])
+  tag       ArticleTag @relation(fields: [tagId], references: [id])
+
+  @@id([articleId, tagId])
+  @@index([articleId])
+  @@index([tagId])
+  @@map("article_tag_relations")
+}
+
+model ConsultationCategory {
+  id                   String                @id @default(uuid()) @db.Uuid
+  nameAr               String
+  nameEn               String
+  isActive             Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  consultationRequests ConsultationRequest[]
+
+  @@map("consultation_categories")
+}
+
+model ConsultationRequest {
+  id                String               @id @default(uuid()) @db.Uuid
+  categoryId        String               @db.Uuid
+  fullName          String
+  age               Int
+  gender            ConsultationGender
+  country           String
+  phone             String
+  whatsApp          String
+  createdAt         DateTime             @default(now())
+  email             String
+  consultationTopic String
+  notes             String?
+  category          ConsultationCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([phone])
+  @@index([whatsApp])
+  @@index([email])
+  @@index([createdAt])
+  @@map("consultation_requests")
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  email     String
+  phone     String
+  message   String
+  isOpened  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([phone])
+  @@index([isOpened])
+  @@index([createdAt])
+  @@map("contact_messages")
+}
+
+model NotificationLog {
+  id           String             @id @default(uuid()) @db.Uuid
+  userId       String?            @db.Uuid
+  email        String
+  type         NotificationType
+  status       NotificationStatus @default(PENDING)
+  errorMessage String?
+  sentAt       DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  user         User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([email])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("notification_logs")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @db.Uuid
+  actorEmail  String?
+  actorRole   String?
+  action      String
+  entityType  String
+  entityId    String?
+  description String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
 enum RoleName {
   Admin
   User
@@ -40,8 +1026,8 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
-  CANCELLED
   REFUNDED
+  CANCELLED
 }
 
 enum PaymentProvider {
@@ -104,988 +1090,23 @@ enum Gender {
   Female
 }
 
-model Role {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        RoleName @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  users User[]
-
-  @@map("roles")
+enum NotificationType {
+  EMAIL_VERIFICATION_OTP
+  PASSWORD_RESET_OTP
+  PASSWORD_CHANGED
+  ORDER_CREATED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  REFUND_PROCESSED
+  COURSE_ACCESS_GRANTED
+  COURSE_COMPLETED
+  CONSULTATION_REQUEST_SUBMITTED
+  CONSULTATION_REQUEST_ADMIN
+  CONTACT_MESSAGE_RECEIVED
 }
 
-model User {
-  id                            String    @id @default(uuid()) @db.Uuid
-  roleId                        String    @db.Uuid
-  firstName                     String?
-  lastName                      String?
-  fullName                      String
-  email                         String    @unique
-  phoneNumber                   String    @unique
-  passwordHash                  String
-  profileImage                  String?
-  gender                        Gender?
-  dateOfBirth                   DateTime?
-  isEmailVerified               Boolean   @default(false)
-  emailVerifiedAt               DateTime?
-  isPhoneVerified               Boolean   @default(false)
-  phoneVerifiedAt               DateTime?
-  lastLoginAt                   DateTime?
-  emailVerificationOtpHash      String?
-  emailVerificationOtpExpiresAt DateTime?
-  emailVerificationOtpSentAt    DateTime?
-  emailVerificationAttempts     Int       @default(0)
-  passwordResetOtpHash          String?
-  passwordResetOtpExpiresAt     DateTime?
-  passwordResetOtpSentAt        DateTime?
-  passwordResetAttempts         Int       @default(0)
-  hashedRefreshToken            String?
-  referralCode                  String?   @unique
-  referredByUserId              String?   @db.Uuid
-  isActive                      Boolean   @default(true)
-  createdAt                     DateTime  @default(now())
-  updatedAt                     DateTime  @updatedAt
-
-  role                Role                 @relation(fields: [roleId], references: [id])
-  referredBy          User?                @relation("UserReferralTree", fields: [referredByUserId], references: [id])
-  referredUsers       User[]               @relation("UserReferralTree")
-  addresses           UserAddress[]
-  emailOtps           EmailOtp[]
-  refreshTokens       RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
-  userDevices         UserDevice[]
-  contentSessions     ContentSession[]
-  userCourses         UserCourse[]
-  userLessonProgress  UserLessonProgress[]
-  userBooks           UserBook[]
-  courseReviews       CourseReview[]
-  certificates        Certificate[]
-  bookReviews         BookReview[]
-  cart                Cart?
-  orders              Order[]
-  payments            Payment[]
-  couponUsages        CouponUsage[]
-  referralsSent       Referral[]           @relation("ReferrerUser")
-  referralReceived    Referral?            @relation("ReferredUser")
-  wishlists           Wishlist[]
-
-  @@index([roleId])
-  @@index([referredByUserId])
-  @@map("users")
-}
-
-model UserAddress {
-  id             String   @id @default(uuid()) @db.Uuid
-  userId         String   @db.Uuid
-  countryId      String?  @db.Uuid
-  cityId         String?  @db.Uuid
-  governorateId  String?  @db.Uuid
-  label          String?
-  fullName       String
-  phoneNumber    String
-  state          String?
-  addressLine1   String?
-  addressLine2   String?
-  city           String
-  street         String?
-  buildingNumber String?
-  floor          String?
-  apartment      String?
-  landmark       String?
-  postalCode     String?
-  country        String   @default("EG")
-  latitude       Decimal? @db.Decimal(9, 6)
-  longitude      Decimal? @db.Decimal(9, 6)
-  notes          String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  user           User         @relation(fields: [userId], references: [id])
-  addressCountry Country?     @relation(fields: [countryId], references: [id])
-  addressCity    City?        @relation(fields: [cityId], references: [id])
-  governorate    Governorate? @relation(fields: [governorateId], references: [id])
-  orders         Order[]
-
-  @@index([userId])
-  @@index([countryId])
-  @@index([cityId])
-  @@index([governorateId])
-  @@map("user_addresses")
-}
-
-model Country {
-  id           String   @id @default(uuid()) @db.Uuid
-  nameAr       String
-  nameEn       String
-  isoCode      String   @unique
-  phoneCode    String
-  currencyCode String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  cities        City[]
-  userAddresses UserAddress[]
-
-  @@map("countries")
-}
-
-model City {
-  id        String   @id @default(uuid()) @db.Uuid
-  countryId String   @db.Uuid
-  nameAr    String
-  nameEn    String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  country       Country       @relation(fields: [countryId], references: [id])
-  userAddresses UserAddress[]
-
-  @@unique([countryId, nameEn])
-  @@index([countryId])
-  @@map("cities")
-}
-
-model EmailOtp {
-  id            String     @id @default(uuid()) @db.Uuid
-  userId        String?    @db.Uuid
-  email         String
-  purpose       OtpPurpose
-  codeHash      String
-  expiresAt     DateTime
-  verifiedAt    DateTime?
-  consumedAt    DateTime?
-  attemptsCount Int        @default(0)
-  createdAt     DateTime   @default(now())
-
-  user User? @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([email, purpose])
-  @@index([email, purpose, expiresAt])
-  @@map("email_otps")
-}
-
-model RefreshToken {
-  id           String    @id @default(uuid()) @db.Uuid
-  userId       String    @db.Uuid
-  userDeviceId String?   @db.Uuid
-  tokenHash    String    @unique
-  ipAddress    String?
-  userAgent    String?
-  expiresAt    DateTime
-  revokedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  user       User        @relation(fields: [userId], references: [id])
-  userDevice UserDevice? @relation(fields: [userDeviceId], references: [id])
-
-  @@index([userId])
-  @@index([userDeviceId])
-  @@map("refresh_tokens")
-}
-
-model PasswordResetToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @db.Uuid
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@map("password_reset_tokens")
-}
-
-model UserDevice {
-  id               String     @id @default(uuid()) @db.Uuid
-  userId           String     @db.Uuid
-  deviceType       DeviceType
-  deviceIdentifier String
-  deviceName       String?
-  pushToken        String?
-  lastSeenAt       DateTime?
-  isActive         Boolean    @default(true)
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-
-  user            User             @relation(fields: [userId], references: [id])
-  refreshTokens   RefreshToken[]
-  contentSessions ContentSession[]
-
-  @@unique([userId, deviceIdentifier])
-  @@index([userId])
-  @@map("user_devices")
-}
-
-model ContentSession {
-  id             String      @id @default(uuid()) @db.Uuid
-  userId         String      @db.Uuid
-  userDeviceId   String      @db.Uuid
-  contentType    ContentType
-  lessonId       String?     @db.Uuid
-  bookFormatId   String?     @db.Uuid
-  sessionKey     String      @unique
-  startedAt      DateTime    @default(now())
-  lastActivityAt DateTime    @default(now())
-  expiresAt      DateTime
-  endedAt        DateTime?
-  isActive       Boolean     @default(true)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  user       User        @relation(fields: [userId], references: [id])
-  userDevice UserDevice  @relation(fields: [userDeviceId], references: [id])
-  lesson     Lesson?     @relation(fields: [lessonId], references: [id])
-  bookFormat BookFormat? @relation(fields: [bookFormatId], references: [id])
-
-  @@index([userId])
-  @@index([userDeviceId])
-  @@index([lessonId])
-  @@index([bookFormatId])
-  @@index([userId, isActive])
-  @@map("content_sessions")
-}
-
-model CourseCategory {
-  id        String   @id @default(uuid()) @db.Uuid
-  nameAr    String
-  nameEn    String
-  image     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  courses Course[]
-
-  @@index([isActive])
-  @@map("course_categories")
-}
-
-model Course {
-  id                 String   @id @default(uuid()) @db.Uuid
-  categoryId         String   @db.Uuid
-  titleAr            String
-  titleEn            String
-  shortDescriptionAr String
-  shortDescriptionEn String
-  descriptionAr      String
-  descriptionEn      String
-  thumbnailImage     String?
-  promoVideoUrl      String?
-  priceEGP           Decimal  @db.Decimal(12, 2)
-  priceUSD           Decimal  @db.Decimal(12, 2)
-  discountPriceEGP   Decimal? @db.Decimal(12, 2)
-  discountPriceUSD   Decimal? @db.Decimal(12, 2)
-  certificateEnabled Boolean  @default(false)
-  isFeatured         Boolean  @default(false)
-  isHomeDisplay      Boolean  @default(false)
-  isActive           Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  category     CourseCategory  @relation(fields: [categoryId], references: [id])
-  sections     CourseSection[]
-  userCourses  UserCourse[]
-  reviews      CourseReview[]
-  certificates Certificate[]
-
-  @@index([categoryId])
-  @@index([categoryId, isActive])
-  @@index([isActive, createdAt])
-  @@index([isFeatured])
-  @@index([isHomeDisplay])
-  @@map("courses")
-}
-
-model CourseSection {
-  id           String   @id @default(uuid()) @db.Uuid
-  courseId     String   @db.Uuid
-  titleAr      String
-  titleEn      String
-  displayOrder Int
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  course  Course   @relation(fields: [courseId], references: [id])
-  lessons Lesson[]
-
-  @@unique([courseId, displayOrder])
-  @@index([courseId])
-  @@index([isActive])
-  @@map("course_sections")
-}
-
-model Lesson {
-  id                   String     @id @default(uuid()) @db.Uuid
-  sectionId            String     @db.Uuid
-  titleAr              String
-  titleEn              String
-  lessonType           LessonType
-  videoKey             String?
-  videoDurationSeconds Int?
-  pdfKey               String?
-  isPreview            Boolean    @default(false)
-  displayOrder         Int
-  isActive             Boolean    @default(true)
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
-
-  section        CourseSection        @relation(fields: [sectionId], references: [id])
-  userProgress   UserLessonProgress[]
-  contentSession ContentSession[]
-
-  @@unique([sectionId, displayOrder])
-  @@index([sectionId])
-  @@index([lessonType])
-  @@index([isPreview])
-  @@index([isActive])
-  @@map("lessons")
-}
-
-model UserCourse {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @db.Uuid
-  courseId    String   @db.Uuid
-  purchasedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
-
-  @@unique([userId, courseId])
-  @@index([userId])
-  @@index([courseId])
-  @@index([purchasedAt])
-  @@map("user_courses")
-}
-
-model UserLessonProgress {
-  id                   String    @id @default(uuid()) @db.Uuid
-  userId               String    @db.Uuid
-  lessonId             String    @db.Uuid
-  watchedSeconds       Int       @default(0)
-  completionPercentage Decimal   @default(0) @db.Decimal(5, 2)
-  isCompleted          Boolean   @default(false)
-  lastWatchedAt        DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id])
-  lesson Lesson @relation(fields: [lessonId], references: [id])
-
-  @@unique([userId, lessonId])
-  @@index([userId])
-  @@index([lessonId])
-  @@index([isCompleted])
-  @@map("user_lesson_progress")
-}
-
-model CourseReview {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  courseId  String   @db.Uuid
-  rating    Int      @db.SmallInt
-  title     String?
-  comment   String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
-
-  @@unique([userId, courseId])
-  @@index([userId])
-  @@index([courseId])
-  @@index([isActive])
-  @@map("course_reviews")
-}
-
-model Certificate {
-  id                String   @id @default(uuid()) @db.Uuid
-  userId            String   @db.Uuid
-  courseId          String   @db.Uuid
-  certificateNumber String   @unique
-  issuedAt          DateTime @default(now())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
-
-  @@unique([userId, courseId])
-  @@index([userId])
-  @@index([courseId])
-  @@index([issuedAt])
-  @@map("certificates")
-}
-
-model BookCategory {
-  id        String   @id @default(uuid()) @db.Uuid
-  nameAr    String
-  nameEn    String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  books Book[]
-
-  @@map("book_categories")
-}
-
-model Book {
-  id               String   @id @default(uuid()) @db.Uuid
-  bookCategoryId   String   @db.Uuid
-  slug             String   @unique
-  titleAr          String
-  titleEn          String
-  descriptionAr    String
-  descriptionEn    String
-  coverImage       String
-  priceEgp         Decimal  @db.Decimal(12, 2)
-  priceUsd         Decimal  @db.Decimal(12, 2)
-  discountPriceEgp Decimal? @db.Decimal(12, 2)
-  discountPriceUsd Decimal? @db.Decimal(12, 2)
-  isFeatured       Boolean  @default(false)
-  isHomeDisplay    Boolean  @default(false)
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  bookCategory BookCategory @relation(fields: [bookCategoryId], references: [id])
-  bookFormats  BookFormat[]
-  bookImages   BookImage[]
-  bookReviews  BookReview[]
-
-  @@index([bookCategoryId])
-  @@index([isHomeDisplay])
-  @@map("books")
-}
-
-model BookImage {
-  id           String   @id @default(uuid()) @db.Uuid
-  bookId       String   @db.Uuid
-  imageUrl     String
-  displayOrder Int      @default(0)
-  createdAt    DateTime @default(now())
-
-  book Book @relation(fields: [bookId], references: [id])
-
-  @@index([bookId])
-  @@map("book_images")
-}
-
-model BookFormat {
-  id               String         @id @default(uuid()) @db.Uuid
-  bookId           String         @db.Uuid
-  formatType       BookFormatType
-  sku              String?        @unique
-  stock            Int?
-  weight           Decimal?       @db.Decimal(8, 2)
-  priceEgp         Decimal?       @db.Decimal(12, 2)
-  discountPriceEgp Decimal?       @db.Decimal(12, 2)
-  priceUsd         Decimal?       @db.Decimal(12, 2)
-  discountPriceUsd Decimal?       @db.Decimal(12, 2)
-  readerFile       String?
-  audioFile        String?
-  audioDuration    Int?
-  isActive         Boolean        @default(true)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-
-  book            Book             @relation(fields: [bookId], references: [id])
-  contentSessions ContentSession[]
-  userBooks       UserBook[]
-
-  @@unique([bookId, formatType])
-  @@index([bookId])
-  @@map("book_formats")
-}
-
-model BookReview {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  bookId    String   @db.Uuid
-  rating    Int      @db.SmallInt
-  title     String?
-  comment   String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
-  book Book @relation(fields: [bookId], references: [id])
-
-  @@unique([userId, bookId])
-  @@index([userId])
-  @@index([bookId])
-  @@map("book_reviews")
-}
-
-model ProductCategory {
-  id        String   @id @default(uuid()) @db.Uuid
-  nameAr    String
-  nameEn    String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  products Product[]
-
-  @@map("product_categories")
-}
-
-model Product {
-  id               String   @id @default(uuid()) @db.Uuid
-  categoryId       String   @db.Uuid
-  nameAr           String
-  nameEn           String
-  slug             String   @unique
-  descriptionAr    String
-  descriptionEn    String
-  coverImage       String
-  priceEgp         Decimal  @db.Decimal(12, 2)
-  discountPriceEgp Decimal? @db.Decimal(12, 2)
-  priceUsd         Decimal  @db.Decimal(12, 2)
-  discountPriceUsd Decimal? @db.Decimal(12, 2)
-  stock            Int      @default(0)
-  sku              String?  @unique
-  isFeatured       Boolean  @default(false)
-  isHomeDisplay    Boolean  @default(false)
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  category ProductCategory @relation(fields: [categoryId], references: [id])
-  images   ProductImage[]
-
-  @@index([categoryId])
-  @@index([isActive, createdAt])
-  @@index([isFeatured])
-  @@index([isHomeDisplay])
-  @@map("products")
-}
-
-model ProductImage {
-  id           String   @id @default(uuid()) @db.Uuid
-  productId    String   @db.Uuid
-  imageUrl     String
-  displayOrder Int
-  createdAt    DateTime @default(now())
-
-  product Product @relation(fields: [productId], references: [id])
-
-  @@index([productId])
-  @@map("product_images")
-}
-
-model Cart {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @unique @db.Uuid
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user  User       @relation(fields: [userId], references: [id])
-  items CartItem[]
-
-  @@map("carts")
-}
-
-model CartItem {
-  id        String       @id @default(uuid()) @db.Uuid
-  cartId    String       @db.Uuid
-  itemType  CartItemType
-  itemId    String       @db.Uuid
-  quantity  Int          @default(1)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  cart Cart @relation(fields: [cartId], references: [id])
-
-  @@unique([cartId, itemType, itemId])
-  @@index([cartId])
-  @@map("cart_items")
-}
-
-model UserBook {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @db.Uuid
-  bookFormatId String   @db.Uuid
-  purchasedAt  DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user       User       @relation(fields: [userId], references: [id])
-  bookFormat BookFormat @relation(fields: [bookFormatId], references: [id])
-
-  @@unique([userId, bookFormatId])
-  @@index([userId])
-  @@index([bookFormatId])
-  @@index([purchasedAt])
-  @@map("user_books")
-}
-
-model Order {
-  id                String        @id @default(uuid()) @db.Uuid
-  userId            String        @db.Uuid
-  orderNumber       String        @unique
-  status            OrderStatus   @default(PENDING)
-  paymentStatus     PaymentStatus @default(PENDING)
-  currency          String
-  subtotal          Decimal       @db.Decimal(12, 2)
-  discountAmount    Decimal       @db.Decimal(12, 2)
-  shippingCost      Decimal       @default(0) @db.Decimal(12, 2)
-  totalAmount       Decimal       @db.Decimal(12, 2)
-  couponId          String?       @db.Uuid
-  shippingAddressId String?       @db.Uuid
-  hasPhysicalItems  Boolean       @default(false)
-  notes             String?
-  paidAt            DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-
-  user                User                 @relation(fields: [userId], references: [id])
-  coupon              Coupon?              @relation(fields: [couponId], references: [id])
-  shippingAddress     UserAddress?         @relation(fields: [shippingAddressId], references: [id])
-  items               OrderItem[]
-  payments            Payment[]
-  paymentTransactions PaymentTransaction[]
-  couponUsage         CouponUsage?
-  refunds             Refund[]
-
-  @@index([userId])
-  @@index([couponId])
-  @@index([shippingAddressId])
-  @@index([status])
-  @@index([paymentStatus])
-  @@map("orders")
-}
-
-model OrderItem {
-  id            String        @id @default(uuid()) @db.Uuid
-  orderId       String        @db.Uuid
-  itemType      OrderItemType
-  itemId        String        @db.Uuid
-  titleAr       String
-  titleEn       String
-  quantity      Int
-  unitPrice     Decimal       @db.Decimal(12, 2)
-  discountPrice Decimal?      @db.Decimal(12, 2)
-  totalPrice    Decimal       @db.Decimal(12, 2)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  order Order @relation(fields: [orderId], references: [id])
-
-  @@index([orderId])
-  @@map("order_items")
-}
-
-model Governorate {
-  id           String   @id @default(uuid()) @db.Uuid
-  nameAr       String
-  nameEn       String
-  shippingCost Decimal  @db.Decimal(12, 2)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  userAddresses UserAddress[]
-
-  @@map("governorates")
-}
-
-model Payment {
-  id                       String          @id @default(uuid()) @db.Uuid
-  orderId                  String          @db.Uuid
-  userId                   String          @db.Uuid
-  provider                 PaymentProvider
-  method                   PaymentMethod
-  status                   PaymentStatus   @default(PENDING)
-  amount                   Decimal         @db.Decimal(12, 2)
-  currency                 String
-  merchantRefNumber        String          @unique
-  providerReferenceNumber  String?         @unique
-  paypalOrderId            String?         @unique
-  providerPaymentReference String?
-  providerStatus           String?
-  providerResponse         Json?
-  failureReason            String?
-  paidAt                   DateTime?
-  cancelledAt              DateTime?
-  createdAt                DateTime        @default(now())
-  updatedAt                DateTime        @updatedAt
-
-  order        Order                @relation(fields: [orderId], references: [id])
-  user         User                 @relation(fields: [userId], references: [id])
-  transactions PaymentTransaction[]
-
-  @@unique([orderId, provider, method])
-  @@index([orderId])
-  @@index([userId])
-  @@index([provider])
-  @@index([status])
-  @@map("payments")
-}
-
-model PaymentTransaction {
-  id                    String          @id @default(uuid()) @db.Uuid
-  paymentId             String?         @db.Uuid
-  orderId               String          @db.Uuid
-  provider              PaymentProvider
-  method                PaymentMethod?
-  status                PaymentStatus   @default(PENDING)
-  amount                Decimal         @db.Decimal(12, 2)
-  currency              Currency
-  transactionReference  String          @unique
-  providerTransactionId String?         @unique
-  providerResponse      Json?
-  failureReason         String?
-  paidAt                DateTime?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-
-  payment Payment? @relation(fields: [paymentId], references: [id])
-  order   Order    @relation(fields: [orderId], references: [id])
-  refunds Refund[]
-
-  @@index([paymentId])
-  @@index([orderId])
-  @@map("payment_transactions")
-}
-
-model Refund {
-  id                   String        @id @default(uuid()) @db.Uuid
-  orderId              String        @db.Uuid
-  paymentTransactionId String        @db.Uuid
-  refundReference      String        @unique
-  providerRefundId     String?       @unique
-  amount               Decimal       @db.Decimal(12, 2)
-  currency             Currency
-  status               PaymentStatus @default(PENDING)
-  reason               String?
-  processedAt          DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-
-  order              Order              @relation(fields: [orderId], references: [id])
-  paymentTransaction PaymentTransaction @relation(fields: [paymentTransactionId], references: [id])
-
-  @@index([orderId])
-  @@index([paymentTransactionId])
-  @@map("refunds")
-}
-
-model Coupon {
-  id                    String     @id @default(uuid()) @db.Uuid
-  code                  String     @unique
-  name                  String
-  description           String?
-  type                  CouponType
-  value                 Decimal    @db.Decimal(12, 2)
-  minimumOrderAmount    Decimal?   @db.Decimal(12, 2)
-  maximumDiscountAmount Decimal?   @db.Decimal(12, 2)
-  usageLimit            Int?
-  usedCount             Int        @default(0)
-  startsAt              DateTime
-  expiresAt             DateTime
-  isReferralCoupon      Boolean    @default(false)
-  isActive              Boolean    @default(true)
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
-
-  orders       Order[]
-  couponUsages CouponUsage[]
-  referrals    Referral[]
-
-  @@index([code, isActive])
-  @@index([startsAt, expiresAt])
-  @@map("coupons")
-}
-
-model CouponUsage {
-  id             String   @id @default(uuid()) @db.Uuid
-  couponId       String   @db.Uuid
-  userId         String   @db.Uuid
-  orderId        String   @unique @db.Uuid
-  discountAmount Decimal  @db.Decimal(12, 2)
-  currency       Currency
-  usedAt         DateTime @default(now())
-  createdAt      DateTime @default(now())
-
-  coupon Coupon @relation(fields: [couponId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
-  order  Order  @relation(fields: [orderId], references: [id])
-
-  @@index([couponId])
-  @@index([userId])
-  @@index([userId, couponId])
-  @@map("coupon_usages")
-}
-
-model Referral {
-  id             String    @id @default(uuid()) @db.Uuid
-  referrerUserId String    @db.Uuid
-  referredUserId String    @unique @db.Uuid
-  referralCode   String
-  rewardCouponId String?   @db.Uuid
-  isRewarded     Boolean   @default(false)
-  rewardedAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  referrerUser User    @relation("ReferrerUser", fields: [referrerUserId], references: [id])
-  referredUser User    @relation("ReferredUser", fields: [referredUserId], references: [id])
-  rewardCoupon Coupon? @relation(fields: [rewardCouponId], references: [id])
-
-  @@index([referrerUserId])
-  @@index([referredUserId])
-  @@index([rewardCouponId])
-  @@map("referrals")
-}
-
-model Wishlist {
-  id        String           @id @default(uuid()) @db.Uuid
-  userId    String           @db.Uuid
-  itemType  WishlistItemType
-  itemId    String           @db.Uuid
-  createdAt DateTime         @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([userId, itemType, itemId])
-  @@index([userId])
-  @@index([itemType])
-  @@map("wishlists")
-}
-
-model ArticleCategory {
-  id        String   @id @default(uuid()) @db.Uuid
-  nameAr    String
-  nameEn    String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  articles Article[]
-
-  @@map("article_categories")
-}
-
-model Article {
-  id             String   @id @default(uuid()) @db.Uuid
-  categoryId     String   @db.Uuid
-  titleAr        String
-  titleEn        String
-  slug           String   @unique
-  shortContentAr String
-  shortContentEn String
-  contentAr      String
-  contentEn      String
-  coverImage     String
-  viewsCount     Int      @default(0)
-  isFeatured     Boolean  @default(false)
-  isHomeDisplay  Boolean  @default(false)
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  category     ArticleCategory      @relation(fields: [categoryId], references: [id])
-  tagRelations ArticleTagRelation[]
-
-  @@index([categoryId])
-  @@index([isActive, createdAt])
-  @@index([isFeatured])
-  @@index([isHomeDisplay])
-  @@map("articles")
-}
-
-model ArticleTag {
-  id        String   @id @default(uuid()) @db.Uuid
-  nameAr    String
-  nameEn    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tagRelations ArticleTagRelation[]
-
-  @@map("article_tags")
-}
-
-model ArticleTagRelation {
-  articleId String @db.Uuid
-  tagId     String @db.Uuid
-
-  article Article    @relation(fields: [articleId], references: [id])
-  tag     ArticleTag @relation(fields: [tagId], references: [id])
-
-  @@id([articleId, tagId])
-  @@index([articleId])
-  @@index([tagId])
-  @@map("article_tag_relations")
-}
-
-model ConsultationCategory {
-  id        String   @id @default(uuid()) @db.Uuid
-  nameAr    String
-  nameEn    String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  consultationRequests ConsultationRequest[]
-
-  @@map("consultation_categories")
-}
-
-model ConsultationRequest {
-  id                String             @id @default(uuid()) @db.Uuid
-  categoryId        String             @db.Uuid
-  fullName          String
-  age               Int
-  gender            ConsultationGender
-  country           String
-  phone             String
-  whatsApp          String
-  email             String
-  consultationTopic String
-  notes             String?
-  createdAt         DateTime           @default(now())
-
-  category ConsultationCategory @relation(fields: [categoryId], references: [id])
-
-  @@index([categoryId])
-  @@index([phone])
-  @@index([whatsApp])
-  @@index([email])
-  @@index([createdAt])
-  @@map("consultation_requests")
-}
-
-model ContactMessage {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  email     String
-  phone     String
-  message   String
-  isOpened  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([email])
-  @@index([phone])
-  @@index([isOpened])
-  @@index([createdAt])
-  @@map("contact_messages")
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
 }

@@ -26,6 +26,11 @@ import {
 } from '@nestjs/swagger';
 import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { CouponsService } from './coupons.service';
 import { CouponQueryDto } from './dto/coupon-query.dto';
 import {
@@ -45,6 +50,12 @@ export class AdminCouponsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @AuditAction({
+    action: AuditActions.CouponCreated,
+    entityType: AuditEntityTypes.Coupon,
+    entityIdResponsePath: 'data.coupon.id',
+    description: 'Admin created a coupon.',
+  })
   @ApiOperation({
     summary: 'Admin: create coupon.',
     description:
@@ -95,6 +106,12 @@ export class AdminCouponsController {
   }
 
   @Patch(':id')
+  @AuditAction({
+    action: AuditActions.CouponUpdated,
+    entityType: AuditEntityTypes.Coupon,
+    entityIdParam: 'id',
+    description: 'Admin updated a coupon.',
+  })
   @ApiOperation({ summary: 'Admin: update coupon.' })
   @ApiOkResponse({
     description: 'Coupon updated successfully.',
@@ -116,6 +133,12 @@ export class AdminCouponsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
+  @AuditAction({
+    action: AuditActions.CouponDeleted,
+    entityType: AuditEntityTypes.Coupon,
+    entityIdParam: 'id',
+    description: 'Admin deleted a coupon.',
+  })
   @ApiOperation({
     summary: 'Admin: delete coupon.',
     description:

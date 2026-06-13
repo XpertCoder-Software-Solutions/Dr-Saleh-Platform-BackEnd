@@ -1062,8 +1062,8 @@ export class BooksService {
         format.discountPriceUsd === null
           ? null
           : Number(format.discountPriceUsd.toString()),
-      readerFile: format.readerFile,
-      audioFile: format.audioFile,
+      hasReaderFile: Boolean(format.readerFile),
+      hasAudioFile: Boolean(format.audioFile),
       audioDuration: format.audioDuration,
       isActive: format.isActive,
       createdAt: format.createdAt,

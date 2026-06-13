@@ -17,6 +17,7 @@ import {
 } from '../common/utils/pagination';
 import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AdminCourseQueryDto, CourseQueryDto } from './dto/course-query.dto';
 import { CreateCourseCategoryDto } from './dto/create-course-category.dto';
 import { CreateCourseReviewDto } from './dto/create-course-review.dto';
@@ -133,6 +134,9 @@ const userCourseSelect = {
   userId: true,
   courseId: true,
   purchasedAt: true,
+  startedAt: true,
+  completedAt: true,
+  completionPercentage: true,
   createdAt: true,
   updatedAt: true,
   course: {
@@ -207,14 +211,53 @@ type UserCourseRecord = Prisma.UserCourseGetPayload<{
 type UserLessonProgressRecord = Prisma.UserLessonProgressGetPayload<{
   select: typeof userLessonProgressSelect;
 }>;
+type LessonProgressResponse = {
+  id: string;
+  userId: string;
+  lessonId: string;
+  watchedSeconds: number;
+  completionPercentage: number;
+  isCompleted: boolean;
+  lastWatchedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 type CertificateRecord = Prisma.CertificateGetPayload<{
   select: typeof certificateSelect;
 }>;
 type EmptyData = Record<string, never>;
+type CourseProgressSummary = {
+  courseId: string;
+  totalLessons: number;
+  completedLessons: number;
+  completionPercentage: number;
+  isCompleted: boolean;
+};
+type CourseCompletionSyncResult = {
+  courseProgress: CourseProgressSummary;
+  wasAlreadyCompleted: boolean;
+};
+type ContinueLessonResponse = {
+  lessonId: string;
+  sectionId: string;
+  lessonType: LessonType;
+  titleAr: string;
+  titleEn: string;
+  completionPercentage: number;
+};
+type CourseProgressClient = Pick<
+  Prisma.TransactionClient,
+  'lesson' | 'userCourse' | 'userLessonProgress'
+>;
+
+const LESSON_COMPLETION_THRESHOLD_PERCENTAGE = 90;
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   adminFindCategories() {
     return this.prisma.courseCategory.findMany({
@@ -346,7 +389,7 @@ export class CoursesService {
       message: 'Courses returned successfully',
       data: {
         courses: courses.map((course) => this.toCourseSummary(course)),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -550,34 +593,25 @@ export class CoursesService {
     this.validateLessonContent(createDto);
 
     try {
+      const lessonData: Prisma.LessonUncheckedCreateInput = {
+        sectionId,
+        titleAr: createDto.titleAr,
+        titleEn: createDto.titleEn,
+        lessonType: createDto.lessonType,
+        ...this.getLessonCreateContentData(createDto),
+        isPreview: createDto.isPreview ?? false,
+        displayOrder: createDto.displayOrder,
+        isActive: createDto.isActive ?? true,
+      };
+
       const lesson = await this.prisma.lesson.create({
-        data: {
-          sectionId,
-          titleAr: createDto.titleAr,
-          titleEn: createDto.titleEn,
-          lessonType: createDto.lessonType,
-          videoKey:
-            createDto.lessonType === LessonType.VIDEO
-              ? createDto.videoKey
-              : undefined,
-          videoDurationSeconds:
-            createDto.lessonType === LessonType.VIDEO
-              ? createDto.videoDurationSeconds
-              : undefined,
-          pdfKey:
-            createDto.lessonType === LessonType.PDF
-              ? createDto.pdfKey
-              : undefined,
-          isPreview: createDto.isPreview ?? false,
-          displayOrder: createDto.displayOrder,
-          isActive: createDto.isActive ?? true,
-        },
+        data: lessonData,
         select: lessonSelect,
       });
 
       return {
         message: 'Lesson created successfully',
-        data: { lesson: this.toLesson(lesson, { includeProtectedKeys: true }) },
+        data: { lesson: this.toLesson(lesson) },
       };
     } catch (error) {
       this.handleUniqueConstraintError(
@@ -596,47 +630,36 @@ export class CoursesService {
       orderBy: { displayOrder: 'asc' },
     });
 
-    return lessons.map((lesson) =>
-      this.toLesson(lesson, { includeProtectedKeys: true }),
-    );
+    return lessons.map((lesson) => this.toLesson(lesson));
   }
 
   async adminUpdateLesson(id: string, updateDto: UpdateLessonDto) {
     const currentLesson = await this.findLessonOrThrow(id);
     const nextLesson = {
       lessonType: updateDto.lessonType ?? currentLesson.lessonType,
-      videoKey: updateDto.videoKey ?? currentLesson.videoKey ?? undefined,
-      pdfKey: updateDto.pdfKey ?? currentLesson.pdfKey ?? undefined,
+      videoKey: updateDto.videoKey ?? currentLesson.videoKey,
+      videoDurationSeconds:
+        updateDto.videoDurationSeconds ?? currentLesson.videoDurationSeconds,
+      pdfKey: updateDto.pdfKey ?? currentLesson.pdfKey,
     };
     this.validateLessonContent(nextLesson);
 
     try {
+      const lessonData = this.getLessonUpdateData(
+        currentLesson,
+        updateDto,
+        nextLesson,
+      );
+
       const lesson = await this.prisma.lesson.update({
         where: { id },
-        data: {
-          titleAr: updateDto.titleAr,
-          titleEn: updateDto.titleEn,
-          lessonType: updateDto.lessonType,
-          videoKey:
-            nextLesson.lessonType === LessonType.VIDEO
-              ? nextLesson.videoKey
-              : null,
-          videoDurationSeconds:
-            nextLesson.lessonType === LessonType.VIDEO
-              ? updateDto.videoDurationSeconds
-              : null,
-          pdfKey:
-            nextLesson.lessonType === LessonType.PDF ? nextLesson.pdfKey : null,
-          isPreview: updateDto.isPreview,
-          displayOrder: updateDto.displayOrder,
-          isActive: updateDto.isActive,
-        },
+        data: lessonData,
         select: lessonSelect,
       });
 
       return {
         message: 'Lesson updated successfully',
-        data: { lesson: this.toLesson(lesson, { includeProtectedKeys: true }) },
+        data: { lesson: this.toLesson(lesson) },
       };
     } catch (error) {
       this.handleUniqueConstraintError(
@@ -686,7 +709,7 @@ export class CoursesService {
       message: 'Courses returned successfully',
       data: {
         courses: courses.map((course) => this.toCourseSummary(course)),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -770,8 +793,72 @@ export class CoursesService {
     });
 
     return {
-      ...this.toLesson(lesson, { includeProtectedKeys: true }),
+      ...this.toLesson(lesson),
       progress: progress ? this.toProgress(progress) : null,
+    };
+  }
+
+  async getMyCourseProgress(
+    userId: string,
+    courseId: string,
+  ): Promise<CourseProgressSummary> {
+    await this.ensureUserPurchasedCourse(userId, courseId);
+    await this.ensureCourseExists(courseId);
+
+    return this.calculateCourseProgress(this.prisma, userId, courseId);
+  }
+
+  async getMyCourseContinueLesson(
+    userId: string,
+    courseId: string,
+  ): Promise<ContinueLessonResponse> {
+    await this.ensureUserPurchasedCourse(userId, courseId);
+    await this.ensureCourseExists(courseId);
+
+    const lessons = await this.prisma.lesson.findMany({
+      where: {
+        isActive: true,
+        section: {
+          courseId,
+          isActive: true,
+        },
+      },
+      select: {
+        id: true,
+        sectionId: true,
+        lessonType: true,
+        titleAr: true,
+        titleEn: true,
+        userProgress: {
+          where: { userId },
+          select: {
+            completionPercentage: true,
+            isCompleted: true,
+          },
+          take: 1,
+        },
+      },
+      orderBy: [{ section: { displayOrder: 'asc' } }, { displayOrder: 'asc' }],
+    });
+
+    if (lessons.length === 0) {
+      throw new NotFoundException('No active lessons found for this course.');
+    }
+
+    const continueLesson =
+      lessons.find((lesson) => !lesson.userProgress[0]?.isCompleted) ??
+      lessons[lessons.length - 1];
+    const progress = continueLesson.userProgress[0];
+
+    return {
+      lessonId: continueLesson.id,
+      sectionId: continueLesson.sectionId,
+      lessonType: continueLesson.lessonType,
+      titleAr: continueLesson.titleAr,
+      titleEn: continueLesson.titleEn,
+      completionPercentage: progress
+        ? this.toNumberFromDecimal(progress.completionPercentage)
+        : 0,
     };
   }
 
@@ -784,6 +871,7 @@ export class CoursesService {
       where: { id: lessonId },
       select: {
         id: true,
+        lessonType: true,
         section: {
           select: {
             courseId: true,
@@ -798,33 +886,64 @@ export class CoursesService {
 
     await this.ensureUserPurchasedCourse(userId, lesson.section.courseId);
 
-    const progress = await this.prisma.userLessonProgress.upsert({
-      where: {
-        userId_lessonId: {
+    const normalizedProgress = this.resolveLessonProgressUpdate(
+      lesson.lessonType,
+      updateDto,
+    );
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const progress = await tx.userLessonProgress.upsert({
+        where: {
+          userId_lessonId: {
+            userId,
+            lessonId,
+          },
+        },
+        create: {
           userId,
           lessonId,
+          watchedSeconds: normalizedProgress.watchedSeconds ?? 0,
+          completionPercentage: normalizedProgress.completionPercentage,
+          isCompleted: normalizedProgress.isCompleted,
+          lastWatchedAt: normalizedProgress.lastWatchedAt,
         },
-      },
-      create: {
+        update: {
+          watchedSeconds: normalizedProgress.watchedSeconds,
+          completionPercentage: normalizedProgress.completionPercentage,
+          isCompleted: normalizedProgress.isCompleted,
+          lastWatchedAt: normalizedProgress.lastWatchedAt,
+        },
+        select: userLessonProgressSelect,
+      });
+      const courseCompletion = await this.syncUserCourseCompletion(
+        tx,
         userId,
-        lessonId,
-        watchedSeconds: updateDto.watchedSeconds,
-        completionPercentage: updateDto.completionPercentage,
-        isCompleted: updateDto.completionPercentage >= 100,
-        lastWatchedAt: new Date(),
-      },
-      update: {
-        watchedSeconds: updateDto.watchedSeconds,
-        completionPercentage: updateDto.completionPercentage,
-        isCompleted: updateDto.completionPercentage >= 100,
-        lastWatchedAt: new Date(),
-      },
-      select: userLessonProgressSelect,
+        lesson.section.courseId,
+        normalizedProgress.lastWatchedAt,
+      );
+
+      return {
+        progress,
+        courseProgress: courseCompletion.courseProgress,
+        shouldNotifyCourseCompleted:
+          courseCompletion.courseProgress.isCompleted &&
+          !courseCompletion.wasAlreadyCompleted,
+      };
     });
+
+    if (result.shouldNotifyCourseCompleted) {
+      await this.sendCourseCompletedNotification(
+        userId,
+        lesson.section.courseId,
+      );
+    }
 
     return {
       message: 'Lesson progress updated successfully',
-      data: { progress: this.toProgress(progress) },
+      data: {
+        progress: this.toProgress(result.progress),
+        courseProgress: result.courseProgress,
+      },
     };
   }
 
@@ -888,7 +1007,7 @@ export class CoursesService {
       message: 'Course reviews returned successfully',
       data: {
         reviews: reviews.map((review) => this.toReview(review)),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -1059,6 +1178,134 @@ export class CoursesService {
     }
   }
 
+  private async calculateCourseProgress(
+    client: CourseProgressClient,
+    userId: string,
+    courseId: string,
+  ): Promise<CourseProgressSummary> {
+    const activeLessonWhere: Prisma.LessonWhereInput = {
+      isActive: true,
+      section: {
+        courseId,
+        isActive: true,
+      },
+    };
+    const [totalLessons, completedLessons] = await Promise.all([
+      client.lesson.count({ where: activeLessonWhere }),
+      client.userLessonProgress.count({
+        where: {
+          userId,
+          isCompleted: true,
+          lesson: activeLessonWhere,
+        },
+      }),
+    ]);
+    const completionPercentage =
+      totalLessons === 0
+        ? 0
+        : this.roundPercentage((completedLessons / totalLessons) * 100);
+
+    return {
+      courseId,
+      totalLessons,
+      completedLessons,
+      completionPercentage,
+      isCompleted: totalLessons > 0 && completedLessons === totalLessons,
+    };
+  }
+
+  private async syncUserCourseCompletion(
+    client: CourseProgressClient,
+    userId: string,
+    courseId: string,
+    timestamp: Date,
+  ): Promise<CourseCompletionSyncResult> {
+    const userCourse = await client.userCourse.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId,
+        },
+      },
+      select: {
+        completedAt: true,
+        startedAt: true,
+      },
+    });
+
+    if (!userCourse) {
+      throw new ForbiddenException('Course purchase is required.');
+    }
+
+    const courseProgress = await this.calculateCourseProgress(
+      client,
+      userId,
+      courseId,
+    );
+
+    await client.userCourse.update({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId,
+        },
+      },
+      data: {
+        completionPercentage: courseProgress.completionPercentage,
+        completedAt: courseProgress.isCompleted
+          ? (userCourse.completedAt ?? timestamp)
+          : null,
+        startedAt: userCourse.startedAt ?? timestamp,
+      },
+    });
+
+    return {
+      courseProgress,
+      wasAlreadyCompleted: userCourse.completedAt !== null,
+    };
+  }
+
+  private async sendCourseCompletedNotification(
+    userId: string,
+    courseId: string,
+  ): Promise<void> {
+    const userCourse = await this.prisma.userCourse.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId,
+        },
+      },
+      select: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+          },
+        },
+        course: {
+          select: {
+            titleAr: true,
+            titleEn: true,
+          },
+        },
+      },
+    });
+
+    if (!userCourse) {
+      return;
+    }
+
+    await this.notificationsService.sendCourseCompleted({
+      userId: userCourse.user.id,
+      email: userCourse.user.email,
+      fullName: userCourse.user.fullName,
+      courseTitleAr: userCourse.course.titleAr,
+      courseTitleEn: userCourse.course.titleEn,
+    });
+  }
+
   private async countCourseDependencies(courseId: string): Promise<number> {
     const [sections, purchases, reviews, certificates, cartItems, orderItems] =
       await this.prisma.$transaction([
@@ -1091,7 +1338,7 @@ export class CoursesService {
   private async loadCourseProgress(
     userId: string,
     courseId: string,
-  ): Promise<Map<string, ReturnType<typeof this.toProgress>>> {
+  ): Promise<Map<string, LessonProgressResponse>> {
     const progress = await this.prisma.userLessonProgress.findMany({
       where: {
         userId,
@@ -1198,13 +1445,166 @@ export class CoursesService {
     }
   }
 
+  private getLessonCreateContentData(
+    createDto: CreateLessonDto,
+  ): Pick<
+    Prisma.LessonUncheckedCreateInput,
+    'videoKey' | 'videoDurationSeconds' | 'pdfKey'
+  > {
+    if (createDto.lessonType === LessonType.VIDEO) {
+      return {
+        videoKey: createDto.videoKey,
+        videoDurationSeconds: createDto.videoDurationSeconds,
+      };
+    }
+
+    return {
+      pdfKey: createDto.pdfKey,
+    };
+  }
+
+  private getLessonUpdateData(
+    currentLesson: LessonRecord,
+    updateDto: UpdateLessonDto,
+    nextLesson: {
+      lessonType: LessonType;
+      videoKey?: string | null;
+      videoDurationSeconds?: number | null;
+      pdfKey?: string | null;
+    },
+  ): Prisma.LessonUncheckedUpdateInput {
+    const lessonData: Prisma.LessonUncheckedUpdateInput = {};
+
+    if (updateDto.titleAr !== undefined) {
+      lessonData.titleAr = updateDto.titleAr;
+    }
+
+    if (updateDto.titleEn !== undefined) {
+      lessonData.titleEn = updateDto.titleEn;
+    }
+
+    if (updateDto.lessonType !== undefined) {
+      lessonData.lessonType = updateDto.lessonType;
+    }
+
+    if (updateDto.isPreview !== undefined) {
+      lessonData.isPreview = updateDto.isPreview;
+    }
+
+    if (updateDto.displayOrder !== undefined) {
+      lessonData.displayOrder = updateDto.displayOrder;
+    }
+
+    if (updateDto.isActive !== undefined) {
+      lessonData.isActive = updateDto.isActive;
+    }
+
+    if (nextLesson.lessonType === LessonType.VIDEO) {
+      if (
+        updateDto.lessonType !== undefined ||
+        updateDto.videoKey !== undefined
+      ) {
+        lessonData.videoKey = nextLesson.videoKey;
+      }
+
+      if (
+        updateDto.lessonType !== undefined ||
+        updateDto.videoDurationSeconds !== undefined
+      ) {
+        lessonData.videoDurationSeconds = nextLesson.videoDurationSeconds;
+      }
+
+      if (
+        updateDto.lessonType === LessonType.VIDEO &&
+        currentLesson.lessonType !== LessonType.VIDEO
+      ) {
+        lessonData.pdfKey = null;
+      }
+
+      return lessonData;
+    }
+
+    if (updateDto.lessonType !== undefined || updateDto.pdfKey !== undefined) {
+      lessonData.pdfKey = nextLesson.pdfKey;
+    }
+
+    if (
+      updateDto.lessonType === LessonType.PDF &&
+      currentLesson.lessonType !== LessonType.PDF
+    ) {
+      lessonData.videoKey = null;
+      lessonData.videoDurationSeconds = null;
+    }
+
+    return lessonData;
+  }
+
+  private resolveLessonProgressUpdate(
+    lessonType: LessonType,
+    updateDto: UpdateLessonProgressDto,
+  ): {
+    watchedSeconds?: number;
+    completionPercentage: number;
+    isCompleted: boolean;
+    lastWatchedAt: Date;
+  } {
+    this.validateProgressInput(updateDto);
+
+    const completionPercentage =
+      lessonType === LessonType.PDF && updateDto.isCompleted === true
+        ? 100
+        : updateDto.completionPercentage;
+    const isCompleted =
+      completionPercentage >= LESSON_COMPLETION_THRESHOLD_PERCENTAGE;
+
+    return {
+      watchedSeconds:
+        lessonType === LessonType.VIDEO ? updateDto.watchedSeconds : undefined,
+      completionPercentage,
+      isCompleted,
+      lastWatchedAt: new Date(),
+    };
+  }
+
+  private validateProgressInput(updateDto: UpdateLessonProgressDto): void {
+    if (
+      !Number.isFinite(updateDto.completionPercentage) ||
+      updateDto.completionPercentage < 0 ||
+      updateDto.completionPercentage > 100
+    ) {
+      throw new BadRequestException(
+        'completionPercentage must be between 0 and 100.',
+      );
+    }
+
+    if (
+      updateDto.watchedSeconds !== undefined &&
+      (!Number.isInteger(updateDto.watchedSeconds) ||
+        updateDto.watchedSeconds < 0)
+    ) {
+      throw new BadRequestException(
+        'watchedSeconds must be an integer greater than or equal to 0.',
+      );
+    }
+  }
+
   private validateLessonContent(input: {
     lessonType: LessonType;
     videoKey?: string | null;
+    videoDurationSeconds?: number | null;
     pdfKey?: string | null;
   }): void {
     if (input.lessonType === LessonType.VIDEO && !input.videoKey) {
       throw new BadRequestException('videoKey is required for VIDEO lessons.');
+    }
+
+    if (
+      input.lessonType === LessonType.VIDEO &&
+      input.videoDurationSeconds == null
+    ) {
+      throw new BadRequestException(
+        'videoDurationSeconds is required for VIDEO lessons.',
+      );
     }
 
     if (input.lessonType === LessonType.PDF && !input.pdfKey) {
@@ -1212,11 +1612,15 @@ export class CoursesService {
     }
   }
 
+  private roundPercentage(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
   private toCourse(
     course: CourseRecord,
     options: {
       includeProtectedLessonKeys: boolean;
-      progress?: Map<string, ReturnType<typeof this.toProgress>>;
+      progress?: Map<string, LessonProgressResponse>;
     },
   ) {
     return {
@@ -1264,7 +1668,7 @@ export class CoursesService {
     section: CourseSectionRecord,
     options: {
       includeProtectedLessonKeys: boolean;
-      progress?: Map<string, ReturnType<typeof this.toProgress>>;
+      progress?: Map<string, LessonProgressResponse>;
     },
   ) {
     return {
@@ -1281,27 +1685,22 @@ export class CoursesService {
           (lesson) => options.includeProtectedLessonKeys || lesson.isActive,
         )
         .map((lesson) => ({
-          ...this.toLesson(lesson, {
-            includeProtectedKeys: options.includeProtectedLessonKeys,
-          }),
+          ...this.toLesson(lesson),
           progress: options.progress?.get(lesson.id) ?? undefined,
         })),
     };
   }
 
-  private toLesson(
-    lesson: LessonRecord,
-    options: { includeProtectedKeys: boolean },
-  ) {
+  private toLesson(lesson: LessonRecord) {
     return {
       id: lesson.id,
       sectionId: lesson.sectionId,
       titleAr: lesson.titleAr,
       titleEn: lesson.titleEn,
       lessonType: lesson.lessonType,
-      videoKey: options.includeProtectedKeys ? lesson.videoKey : undefined,
+      hasVideo: Boolean(lesson.videoKey),
       videoDurationSeconds: lesson.videoDurationSeconds,
-      pdfKey: options.includeProtectedKeys ? lesson.pdfKey : undefined,
+      hasPdf: Boolean(lesson.pdfKey),
       isPreview: lesson.isPreview,
       displayOrder: lesson.displayOrder,
       isActive: lesson.isActive,
@@ -1316,13 +1715,20 @@ export class CoursesService {
       userId: userCourse.userId,
       courseId: userCourse.courseId,
       purchasedAt: userCourse.purchasedAt,
+      startedAt: userCourse.startedAt,
+      completedAt: userCourse.completedAt,
+      completionPercentage: this.toNumberFromDecimal(
+        userCourse.completionPercentage,
+      ),
       createdAt: userCourse.createdAt,
       updatedAt: userCourse.updatedAt,
       course: this.toCourseSummary(userCourse.course),
     };
   }
 
-  private toProgress(progress: UserLessonProgressRecord) {
+  private toProgress(
+    progress: UserLessonProgressRecord,
+  ): LessonProgressResponse {
     return {
       id: progress.id,
       userId: progress.userId,

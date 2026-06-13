@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -14,6 +15,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CloudFrontService } from '../common/cloudfront/cloudfront.service';
+import { CloudFrontSignedUrlResponseDto } from '../common/cloudfront/dto/cloudfront-signed-url-response.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CoursesService } from './courses.service';
 
@@ -22,7 +25,10 @@ import { CoursesService } from './courses.service';
 @UseGuards(JwtAuthGuard)
 @Controller('my-certificates')
 export class MyCertificatesController {
-  constructor(private readonly coursesService: CoursesService) {}
+  constructor(
+    private readonly coursesService: CoursesService,
+    private readonly cloudFrontService: CloudFrontService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List current user certificates.' })
@@ -42,5 +48,26 @@ export class MyCertificatesController {
     @Param('courseId', ParseUUIDPipe) courseId: string,
   ) {
     return this.coursesService.findMyCertificate(userId, courseId);
+  }
+
+  @Get(':courseId/signed-url')
+  @ApiOperation({
+    summary: 'Generate a signed CloudFront URL for a current user certificate.',
+  })
+  @ApiOkResponse({
+    description: 'Signed certificate URL generated.',
+    type: CloudFrontSignedUrlResponseDto,
+  })
+  @ApiForbiddenResponse({ description: 'Certificate ownership is required.' })
+  @ApiNotFoundResponse({ description: 'Certificate not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  generateSignedUrl(
+    @CurrentUser('id') userId: string,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.cloudFrontService.generateSignedCertificateUrl(
+      userId,
+      courseId,
+    );
   }
 }

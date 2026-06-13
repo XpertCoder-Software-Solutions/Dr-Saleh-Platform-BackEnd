@@ -35,6 +35,11 @@ import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { CreateProductDto } from './dto/create-product.dto';
 import { AdminProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -85,6 +90,12 @@ export class AdminProductsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @AuditAction({
+    action: AuditActions.ProductCreated,
+    entityType: AuditEntityTypes.Product,
+    entityIdResponsePath: 'data.product.id',
+    description: 'Admin created a product.',
+  })
   @UseInterceptors(
     FileInterceptor('coverImage', {
       storage: imageDiskStorage(productCoversUploadDirectory),
@@ -114,6 +125,12 @@ export class AdminProductsController {
   }
 
   @Patch(':id')
+  @AuditAction({
+    action: AuditActions.ProductUpdated,
+    entityType: AuditEntityTypes.Product,
+    entityIdParam: 'id',
+    description: 'Admin updated a product.',
+  })
   @UseInterceptors(
     FileInterceptor('coverImage', {
       storage: imageDiskStorage(productCoversUploadDirectory),
@@ -140,12 +157,20 @@ export class AdminProductsController {
     return this.productsService.adminUpdateProduct(
       id,
       updateProductDto,
-      coverImage ? `/uploads/products/covers/${coverImage.filename}` : undefined,
+      coverImage
+        ? `/uploads/products/covers/${coverImage.filename}`
+        : undefined,
     );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
+  @AuditAction({
+    action: AuditActions.ProductDeleted,
+    entityType: AuditEntityTypes.Product,
+    entityIdParam: 'id',
+    description: 'Admin deleted a product.',
+  })
   @ApiOperation({ summary: 'Admin: hard delete one product.' })
   @ApiOkResponse({ description: 'Product deleted successfully.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })

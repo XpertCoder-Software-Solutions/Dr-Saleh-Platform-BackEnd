@@ -5,6 +5,9 @@ export const STORAGE_FOLDERS = [
   'users/profile-images',
   'courses/thumbnails',
   'courses/videos',
+  'courses/pdfs',
+  'books/digital',
+  'books/audio',
   'certificates',
 ] as const;
 

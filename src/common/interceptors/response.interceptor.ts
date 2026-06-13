@@ -2,26 +2,60 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
+  Logger,
   NestInterceptor,
 } from '@nestjs/common';
-import { Observable, map } from 'rxjs';
-import { ApiResponse } from '../responses/api-response.interface';
+import { Request } from 'express';
+import { Observable, catchError, map, throwError } from 'rxjs';
+import {
+  getSafeExceptionDetails,
+  getSafeRequestDetails,
+} from '../utils/safe-logging';
 
 @Injectable()
-export class ResponseInterceptor implements NestInterceptor<
-  unknown,
-  ApiResponse<unknown>
-> {
+export class ResponseInterceptor implements NestInterceptor<unknown, unknown> {
+  private readonly logger = new Logger(ResponseInterceptor.name);
+
   intercept(
-    _context: ExecutionContext,
+    context: ExecutionContext,
     next: CallHandler<unknown>,
-  ): Observable<ApiResponse<unknown>> {
+  ): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<Request>();
+    const requestDetails = getSafeRequestDetails(request);
+
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        message: this.getMessage(data),
-        data: this.getData(data),
-      })),
+      map((data) => {
+        this.logger.debug(
+          [
+            'Response transform',
+            `method=${requestDetails.method}`,
+            `url=${requestDetails.url}`,
+            `dataType=${this.getDataType(data)}`,
+          ].join(' '),
+        );
+
+        return {
+          success: true,
+          message: this.getMessage(data),
+          data: this.getData(data),
+        };
+      }),
+      catchError((error: unknown) => {
+        const exceptionDetails = getSafeExceptionDetails(error);
+
+        this.logger.error(
+          [
+            'Response pipeline error',
+            `name=${exceptionDetails.name}`,
+            `message=${exceptionDetails.message}`,
+            `method=${requestDetails.method}`,
+            `url=${requestDetails.url}`,
+          ].join(' '),
+          exceptionDetails.stack,
+        );
+
+        return throwError(() => error);
+      }),
     );
   }
 
@@ -43,5 +77,17 @@ export class ResponseInterceptor implements NestInterceptor<
 
   private isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
+  }
+
+  private getDataType(data: unknown): string {
+    if (Array.isArray(data)) {
+      return 'array';
+    }
+
+    if (data === null) {
+      return 'null';
+    }
+
+    return typeof data;
   }
 }

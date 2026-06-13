@@ -194,7 +194,7 @@ export class ProductsService {
         products: products.map((product) =>
           this.toPublicProduct(product, query.lang),
         ),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -250,7 +250,7 @@ export class ProductsService {
       message: 'Products returned successfully',
       data: {
         products: products.map((product) => this.toProduct(product)),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }

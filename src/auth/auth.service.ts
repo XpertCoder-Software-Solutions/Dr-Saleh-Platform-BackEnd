@@ -7,6 +7,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -15,12 +16,17 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma, RoleName } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import type { StringValue } from 'ms';
+import { AuditLogService } from '../audit-logs/audit-log.service';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import {
   getPrismaUniqueConstraintFields,
   isPrismaUniqueConstraintError,
 } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
-import { BrevoEmailService } from '../email/brevo-email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   EMAIL_VERIFICATION_OTP_MAX_ATTEMPTS,
   EMAIL_VERIFICATION_OTP_RESEND_COOLDOWN_SECONDS,
@@ -114,6 +120,11 @@ export type JwtTokenPayload = {
   tokenType: 'access' | 'refresh';
 };
 
+export type AuthAuditContext = {
+  ipAddress?: string;
+  userAgent?: string;
+};
+
 @Injectable()
 export class AuthService {
   private readonly jwtAccessSecret: string;
@@ -125,9 +136,11 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
     private readonly otpService: OtpService,
-    private readonly brevoEmailService: BrevoEmailService,
+    private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    @Optional()
+    private readonly auditLogService?: AuditLogService,
   ) {
     this.jwtAccessSecret = this.getRequiredConfig(
       'JWT_ACCESS_SECRET',
@@ -189,10 +202,14 @@ export class AuthService {
     });
 
     try {
-      await this.brevoEmailService.sendEmailVerificationOtp(
-        email,
-        fullName,
-        otp,
+      await this.notificationsService.sendEmailVerificationOtp(
+        {
+          userId: user.id,
+          email,
+          fullName,
+          otp,
+        },
+        { critical: true },
       );
     } catch {
       throw new ServiceUnavailableException(
@@ -209,7 +226,10 @@ export class AuthService {
     };
   }
 
-  async verifyEmail(verifyEmailDto: VerifyEmailDto): Promise<MessageResult> {
+  async verifyEmail(
+    verifyEmailDto: VerifyEmailDto,
+    auditContext?: AuthAuditContext,
+  ): Promise<MessageResult> {
     const email = this.normalizeEmail(verifyEmailDto.email);
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -220,6 +240,11 @@ export class AuthService {
         emailVerificationOtpHash: true,
         emailVerificationOtpExpiresAt: true,
         emailVerificationAttempts: true,
+        role: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
@@ -281,6 +306,15 @@ export class AuthService {
       },
     });
 
+    this.logAuthAudit({
+      userId: user.id,
+      email,
+      role: user.role.name,
+      action: AuditActions.UserEmailVerified,
+      description: 'User verified email.',
+      auditContext,
+    });
+
     return {
       message: 'Email verified successfully',
       data: {},
@@ -331,10 +365,14 @@ export class AuthService {
     });
 
     try {
-      await this.brevoEmailService.sendEmailVerificationOtp(
-        user.email,
-        user.fullName,
-        otp,
+      await this.notificationsService.sendEmailVerificationOtp(
+        {
+          userId: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          otp,
+        },
+        { critical: true },
       );
     } catch {
       throw new ServiceUnavailableException(
@@ -348,7 +386,10 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto): Promise<LoginResult> {
+  async login(
+    loginDto: LoginDto,
+    auditContext?: AuthAuditContext,
+  ): Promise<LoginResult> {
     const email = this.normalizeEmail(loginDto.email);
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -387,6 +428,15 @@ export class AuthService {
         lastLoginAt: new Date(),
         hashedRefreshToken,
       },
+    });
+
+    this.logAuthAudit({
+      userId: user.id,
+      email: user.email,
+      role: user.role.name,
+      action: AuditActions.UserLogin,
+      description: 'User logged in.',
+      auditContext,
     });
 
     return {
@@ -465,6 +515,7 @@ export class AuthService {
 
   async forgotPassword(
     forgotPasswordDto: ForgotPasswordDto,
+    auditContext?: AuthAuditContext,
   ): Promise<MessageResult> {
     const email = this.normalizeEmail(forgotPasswordDto.email);
     const genericResponse = {
@@ -479,6 +530,11 @@ export class AuthService {
         email: true,
         isActive: true,
         passwordResetOtpSentAt: true,
+        role: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
@@ -505,10 +561,14 @@ export class AuthService {
     });
 
     try {
-      await this.brevoEmailService.sendPasswordResetOtp(
-        user.email,
-        user.fullName,
-        otp,
+      await this.notificationsService.sendPasswordResetOtp(
+        {
+          userId: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          otp,
+        },
+        { critical: true },
       );
     } catch {
       throw new ServiceUnavailableException(
@@ -516,20 +576,37 @@ export class AuthService {
       );
     }
 
+    this.logAuthAudit({
+      userId: user.id,
+      email: user.email,
+      role: user.role.name,
+      action: AuditActions.PasswordResetRequested,
+      description: 'User requested a password reset.',
+      auditContext,
+    });
+
     return genericResponse;
   }
 
   async resetPassword(
     resetPasswordDto: ResetPasswordDto,
+    auditContext?: AuthAuditContext,
   ): Promise<MessageResult> {
     const email = this.normalizeEmail(resetPasswordDto.email);
     const user = await this.prisma.user.findUnique({
       where: { email },
       select: {
         id: true,
+        fullName: true,
+        email: true,
         passwordResetOtpHash: true,
         passwordResetOtpExpiresAt: true,
         passwordResetAttempts: true,
+        role: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
@@ -589,6 +666,21 @@ export class AuthService {
       },
     });
 
+    await this.notificationsService.sendPasswordChanged({
+      userId: user.id,
+      email: user.email,
+      fullName: user.fullName,
+    });
+
+    this.logAuthAudit({
+      userId: user.id,
+      email: user.email,
+      role: user.role.name,
+      action: AuditActions.PasswordResetCompleted,
+      description: 'User completed a password reset.',
+      auditContext,
+    });
+
     return {
       message: 'Password reset successfully',
       data: {},
@@ -617,6 +709,34 @@ export class AuthService {
     if (existingPhoneUser) {
       throw new ConflictException('Phone number is already registered.');
     }
+  }
+
+  private logAuthAudit({
+    userId,
+    email,
+    role,
+    action,
+    description,
+    auditContext,
+  }: {
+    userId: string;
+    email: string;
+    role: RoleName;
+    action: string;
+    description: string;
+    auditContext?: AuthAuditContext;
+  }): void {
+    void this.auditLogService?.logAction({
+      actorUserId: userId,
+      actorEmail: email,
+      actorRole: role,
+      action,
+      entityType: AuditEntityTypes.User,
+      entityId: userId,
+      description,
+      ipAddress: auditContext?.ipAddress,
+      userAgent: auditContext?.userAgent,
+    });
   }
 
   private async createUserWithEmailOtp({

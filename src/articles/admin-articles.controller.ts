@@ -35,6 +35,11 @@ import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { ArticlesService } from './articles.service';
 import { AdminArticleQueryDto } from './dto/article-query.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -85,6 +90,12 @@ export class AdminArticlesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @AuditAction({
+    action: AuditActions.ArticleCreated,
+    entityType: AuditEntityTypes.Article,
+    entityIdResponsePath: 'data.article.id',
+    description: 'Admin created an article.',
+  })
   @UseInterceptors(
     FileInterceptor('coverImage', {
       storage: imageDiskStorage(articleCoversUploadDirectory),
@@ -114,6 +125,12 @@ export class AdminArticlesController {
   }
 
   @Patch(':id')
+  @AuditAction({
+    action: AuditActions.ArticleUpdated,
+    entityType: AuditEntityTypes.Article,
+    entityIdParam: 'id',
+    description: 'Admin updated an article.',
+  })
   @UseInterceptors(
     FileInterceptor('coverImage', {
       storage: imageDiskStorage(articleCoversUploadDirectory),
@@ -140,12 +157,20 @@ export class AdminArticlesController {
     return this.articlesService.adminUpdateArticle(
       id,
       updateArticleDto,
-      coverImage ? `/uploads/articles/covers/${coverImage.filename}` : undefined,
+      coverImage
+        ? `/uploads/articles/covers/${coverImage.filename}`
+        : undefined,
     );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
+  @AuditAction({
+    action: AuditActions.ArticleDeleted,
+    entityType: AuditEntityTypes.Article,
+    entityIdParam: 'id',
+    description: 'Admin deleted an article.',
+  })
   @ApiOperation({ summary: 'Admin: hard delete one article.' })
   @ApiOkResponse({ description: 'Article deleted successfully.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })

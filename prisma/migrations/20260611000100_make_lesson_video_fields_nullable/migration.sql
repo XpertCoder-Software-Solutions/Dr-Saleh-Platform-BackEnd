@@ -1,0 +1,3 @@
+ALTER TABLE "lessons" ALTER COLUMN "videoKey" DROP NOT NULL;
+ALTER TABLE "lessons" ALTER COLUMN "videoDurationSeconds" DROP NOT NULL;
+ALTER TABLE "lessons" ALTER COLUMN "pdfKey" DROP NOT NULL;

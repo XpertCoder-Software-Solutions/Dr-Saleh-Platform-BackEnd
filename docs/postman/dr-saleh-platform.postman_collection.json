@@ -1,0 +1,1132 @@
+{
+  "info": {
+    "name": "Dr. Saleh Platform API",
+    "_postman_id": "1a6a4e16-6d89-4fb8-8d11-qa-full-pass",
+    "description": "Full API testing collection for Dr. Saleh Platform. Use with a disposable local or staging database. Provider webhooks require valid Fawry/PayPal signatures.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "adminAccessToken", "value": "" },
+    { "key": "adminRefreshToken", "value": "" },
+    { "key": "email", "value": "qa.user@example.com" },
+    { "key": "adminEmail", "value": "qa.admin@example.com" },
+    { "key": "password", "value": "StrongPass123" },
+    { "key": "otp", "value": "123456" },
+    { "key": "userId", "value": "00000000-0000-4000-8000-000000000001" },
+    { "key": "adminId", "value": "00000000-0000-4000-8000-000000000002" },
+    { "key": "courseId", "value": "00000000-0000-4000-8000-000000000003" },
+    { "key": "courseCategoryId", "value": "00000000-0000-4000-8000-000000000004" },
+    { "key": "sectionId", "value": "00000000-0000-4000-8000-000000000005" },
+    { "key": "lessonId", "value": "00000000-0000-4000-8000-000000000006" },
+    { "key": "bookId", "value": "00000000-0000-4000-8000-000000000007" },
+    { "key": "bookCategoryId", "value": "00000000-0000-4000-8000-000000000008" },
+    { "key": "bookImageId", "value": "00000000-0000-4000-8000-000000000009" },
+    { "key": "bookFormatId", "value": "00000000-0000-4000-8000-000000000010" },
+    { "key": "productId", "value": "00000000-0000-4000-8000-000000000011" },
+    { "key": "productCategoryId", "value": "00000000-0000-4000-8000-000000000012" },
+    { "key": "productImageId", "value": "00000000-0000-4000-8000-000000000013" },
+    { "key": "articleId", "value": "00000000-0000-4000-8000-000000000014" },
+    { "key": "articleCategoryId", "value": "00000000-0000-4000-8000-000000000015" },
+    { "key": "articleTagId", "value": "00000000-0000-4000-8000-000000000016" },
+    { "key": "addressId", "value": "00000000-0000-4000-8000-000000000017" },
+    { "key": "cartItemId", "value": "00000000-0000-4000-8000-000000000018" },
+    { "key": "wishlistItemId", "value": "00000000-0000-4000-8000-000000000019" },
+    { "key": "orderId", "value": "00000000-0000-4000-8000-000000000020" },
+    { "key": "couponId", "value": "00000000-0000-4000-8000-000000000021" },
+    { "key": "couponCode", "value": "QA10" },
+    { "key": "governorateId", "value": "00000000-0000-4000-8000-000000000022" },
+    { "key": "countryId", "value": "EG" },
+    { "key": "consultationCategoryId", "value": "00000000-0000-4000-8000-000000000023" },
+    { "key": "consultationId", "value": "00000000-0000-4000-8000-000000000024" },
+    { "key": "contactMessageId", "value": "00000000-0000-4000-8000-000000000025" },
+    { "key": "referralId", "value": "00000000-0000-4000-8000-000000000026" },
+    { "key": "auditLogId", "value": "00000000-0000-4000-8000-000000000027" },
+    { "key": "certificateNumber", "value": "CERT-2026-000001" }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('status code is expected for API test pass', function () {",
+          "  pm.expect([200, 201, 204, 400, 401, 403, 404, 409, 422, 429, 500, 502, 503]).to.include(pm.response.code);",
+          "});",
+          "if (pm.response.headers.get('Content-Type') && pm.response.headers.get('Content-Type').includes('application/json')) {",
+          "  const json = pm.response.json();",
+          "  pm.test('json response is object', function () { pm.expect(json).to.be.an('object'); });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fullName\":\"QA User\",\"email\":\"{{email}}\",\"phoneNumber\":\"+201001234567\",\"password\":\"{{password}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{email}}\",\"otp\":\"{{otp}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/verify-email"
+          }
+        },
+        {
+          "name": "Resend Email Verification",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{email}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/resend-email-verification"
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.accessToken) pm.collectionVariables.set('accessToken', data.accessToken);",
+                  "  if (data.refreshToken) pm.collectionVariables.set('refreshToken', data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.accessToken) pm.collectionVariables.set('adminAccessToken', data.accessToken);",
+                  "  if (data.refreshToken) pm.collectionVariables.set('adminRefreshToken', data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{adminEmail}}\",\"password\":\"{{password}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refreshToken\":\"{{refreshToken}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/refresh-token"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [],
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{email}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/forgot-password"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{email}}\",\"otp\":\"{{otp}}\",\"newPassword\":\"{{password}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/reset-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "Get Profile", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/users/profile" } },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fullName\":\"QA User Updated\",\"phoneNumber\":\"+201001234568\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/users/profile"
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"currentPassword\":\"{{password}}\",\"newPassword\":\"{{password}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/users/change-password"
+          }
+        },
+        {
+          "name": "Upload Profile Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }] },
+            "url": "{{baseUrl}}/users/profile-image"
+          }
+        },
+        { "name": "Delete Profile Image", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/users/profile-image" } },
+        { "name": "List Addresses", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/addresses" } },
+        { "name": "Get Address", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/addresses/{{addressId}}" } },
+        {
+          "name": "Create Address",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fullName\":\"QA User\",\"phoneNumber\":\"+201001234567\",\"governorateId\":\"{{governorateId}}\",\"city\":\"Cairo\",\"street\":\"QA Street\",\"buildingNumber\":\"12\",\"floor\":\"3\",\"apartment\":\"8\",\"landmark\":\"Near test point\",\"notes\":\"Call first\",\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/addresses"
+          }
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"city\":\"New Cairo\",\"notes\":\"Updated notes\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/addresses/{{addressId}}"
+          }
+        },
+        { "name": "Delete Address", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/addresses/{{addressId}}" } }
+      ]
+    },
+    {
+      "name": "Admin Management",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "List Admins", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/admins?page=1&limit=20&search=qa" } },
+        { "name": "Get Admin", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/admins/{{adminId}}" } },
+        {
+          "name": "Create Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fullName\":\"QA Admin\",\"email\":\"new.admin@example.com\",\"phoneNumber\":\"+201009999999\",\"password\":\"{{password}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/admins"
+          }
+        },
+        {
+          "name": "Update Admin",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fullName\":\"QA Admin Updated\",\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/admins/{{adminId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        { "name": "List Courses", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/courses?page=1&limit=20&lang=en" } },
+        { "name": "Home Courses", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/courses/home?lang=en" } },
+        { "name": "Featured Courses", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/courses/featured?lang=en" } },
+        { "name": "Get Course", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/courses/{{courseId}}?lang=en" } },
+        { "name": "List Course Reviews", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/courses/{{courseId}}/reviews?page=1&limit=20" } },
+        {
+          "name": "Create Course Review",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\":5,\"comment\":\"Useful course\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/courses/{{courseId}}/reviews"
+          }
+        },
+        { "name": "Verify Certificate", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/certificates/verify/{{certificateNumber}}" } }
+      ]
+    },
+    {
+      "name": "Admin Courses",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Create Course Category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nameAr\":\"QA Category\",\"nameEn\":\"QA Category\",\"descriptionAr\":\"QA\",\"descriptionEn\":\"QA\",\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/course-categories"
+          }
+        },
+        { "name": "List Course Categories", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/course-categories?page=1&limit=20" } },
+        { "name": "Get Course Category", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/course-categories/{{courseCategoryId}}" } },
+        {
+          "name": "Update Course Category",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/course-categories/{{courseCategoryId}}"
+          }
+        },
+        { "name": "Delete Course Category", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/course-categories/{{courseCategoryId}}" } },
+        {
+          "name": "Create Course",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{courseCategoryId}}\",\"titleAr\":\"QA Course\",\"titleEn\":\"QA Course\",\"shortDescriptionAr\":\"Short\",\"shortDescriptionEn\":\"Short\",\"descriptionAr\":\"Description\",\"descriptionEn\":\"Description\",\"priceEGP\":1200,\"priceUSD\":40,\"discountPriceEGP\":950,\"discountPriceUSD\":30,\"isFeatured\":true,\"showOnHome\":true,\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/courses"
+          }
+        },
+        { "name": "List Admin Courses", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/courses?page=1&limit=20&isActive=true" } },
+        { "name": "Get Admin Course", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/courses/{{courseId}}" } },
+        {
+          "name": "Update Course",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isFeatured\":false,\"showOnHome\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/courses/{{courseId}}"
+          }
+        },
+        { "name": "Delete Course", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/courses/{{courseId}}" } },
+        {
+          "name": "Create Section",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"titleAr\":\"Section\",\"titleEn\":\"Section\",\"sortOrder\":1,\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/courses/{{courseId}}/sections"
+          }
+        },
+        { "name": "List Sections", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/courses/{{courseId}}/sections" } },
+        {
+          "name": "Update Section",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"sortOrder\":2}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/sections/{{sectionId}}"
+          }
+        },
+        { "name": "Delete Section", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/sections/{{sectionId}}" } },
+        {
+          "name": "Create VIDEO Lesson",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titleAr\":\"Video Lesson\",\"titleEn\":\"Video Lesson\",\"lessonType\":\"VIDEO\",\"videoKey\":\"courses/qa/video.mp4\",\"videoDurationSeconds\":300,\"sortOrder\":1,\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/sections/{{sectionId}}/lessons"
+          }
+        },
+        {
+          "name": "Create PDF Lesson",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titleAr\":\"PDF Lesson\",\"titleEn\":\"PDF Lesson\",\"lessonType\":\"PDF\",\"pdfKey\":\"courses/qa/lesson.pdf\",\"sortOrder\":2,\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/sections/{{sectionId}}/lessons"
+          }
+        },
+        { "name": "List Lessons", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/sections/{{sectionId}}/lessons" } },
+        {
+          "name": "Update Lesson",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true,\"sortOrder\":3}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/lessons/{{lessonId}}"
+          }
+        },
+        { "name": "Delete Lesson", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/lessons/{{lessonId}}" } }
+      ]
+    },
+    {
+      "name": "My Courses And Certificates",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "List My Courses", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-courses?page=1&limit=20" } },
+        { "name": "Get My Course", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-courses/{{courseId}}" } },
+        { "name": "Get Course Progress", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-courses/{{courseId}}/progress" } },
+        { "name": "Continue Course", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-courses/{{courseId}}/continue" } },
+        { "name": "Get Lesson", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-courses/{{courseId}}/lessons/{{lessonId}}" } },
+        { "name": "Get Lesson Video URL", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-courses/{{courseId}}/lessons/{{lessonId}}/video-url" } },
+        { "name": "Get Lesson PDF URL", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-courses/{{courseId}}/lessons/{{lessonId}}/pdf-url" } },
+        {
+          "name": "Update Lesson Progress",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"watchedSeconds\":120,\"completionPercentage\":50}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/my-courses/lessons/{{lessonId}}/progress"
+          }
+        },
+        { "name": "List My Certificates", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-certificates" } },
+        { "name": "Get My Certificate", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-certificates/{{courseId}}" } },
+        { "name": "Get Certificate Signed URL", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-certificates/{{courseId}}/signed-url" } }
+      ]
+    },
+    {
+      "name": "Books",
+      "item": [
+        { "name": "List Book Categories", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/book-categories?lang=en" } },
+        { "name": "Get Book Category", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/book-categories/{{bookCategoryId}}?lang=en" } },
+        { "name": "List Books", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/books?page=1&limit=20&lang=en" } },
+        { "name": "Get Book By Slug", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/books/slug/qa-book?lang=en" } },
+        { "name": "Get Book", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/books/{{bookId}}?lang=en" } }
+      ]
+    },
+    {
+      "name": "Admin Books",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Create Book Category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"nameAr\":\"QA Books\",\"nameEn\":\"QA Books\",\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/book-categories"
+          }
+        },
+        {
+          "name": "Update Book Category",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/book-categories/{{bookCategoryId}}"
+          }
+        },
+        { "name": "Delete Book Category", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/book-categories/{{bookCategoryId}}" } },
+        {
+          "name": "Create Book",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{bookCategoryId}}\",\"titleAr\":\"QA Book\",\"titleEn\":\"QA Book\",\"descriptionAr\":\"Description\",\"descriptionEn\":\"Description\",\"priceEGP\":300,\"priceUSD\":10,\"isActive\":true,\"showOnHome\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/books"
+          }
+        },
+        {
+          "name": "Update Book",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"showOnHome\":false}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/books/{{bookId}}"
+          }
+        },
+        { "name": "Delete Book", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/books/{{bookId}}" } },
+        {
+          "name": "Upload Book Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }, { "key": "altText", "type": "text", "value": "QA image" }] },
+            "url": "{{baseUrl}}/books/{{bookId}}/images"
+          }
+        },
+        {
+          "name": "Update Book Image",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"sortOrder\":1,\"isCover\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/books/images/{{bookImageId}}"
+          }
+        },
+        { "name": "Delete Book Image", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/books/images/{{bookImageId}}" } },
+        {
+          "name": "Create Book Format",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"format\":\"DIGITAL\",\"fileKey\":\"books/qa/book.pdf\",\"priceEGP\":300,\"priceUSD\":10,\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/books/{{bookId}}/formats"
+          }
+        },
+        {
+          "name": "Update Book Format",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/books/formats/{{bookFormatId}}"
+          }
+        },
+        { "name": "Delete Book Format", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/books/formats/{{bookFormatId}}" } }
+      ]
+    },
+    {
+      "name": "My Books",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "Get Digital Book URL", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-books/{{bookFormatId}}/digital-url" } },
+        { "name": "Get Audio Book URL", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/my-books/{{bookFormatId}}/audio-url" } }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        { "name": "List Product Categories", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/product-categories?lang=en" } },
+        { "name": "List Products", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?page=1&limit=20&lang=en" } },
+        { "name": "Get Product By Slug", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products/slug/qa-product?lang=en" } },
+        { "name": "Get Product", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products/{{productId}}?lang=en" } }
+      ]
+    },
+    {
+      "name": "Admin Products",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "List Product Categories", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/product-categories?page=1&limit=20" } },
+        { "name": "Get Product Category", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/product-categories/{{productCategoryId}}" } },
+        {
+          "name": "Create Product Category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"nameAr\":\"QA Products\",\"nameEn\":\"QA Products\",\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/product-categories"
+          }
+        },
+        {
+          "name": "Update Product Category",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/product-categories/{{productCategoryId}}"
+          }
+        },
+        { "name": "Delete Product Category", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/product-categories/{{productCategoryId}}" } },
+        { "name": "List Admin Products", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/products?page=1&limit=20&isActive=true" } },
+        { "name": "Get Admin Product", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/products/{{productId}}" } },
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{productCategoryId}}\",\"nameAr\":\"QA Product\",\"nameEn\":\"QA Product\",\"descriptionAr\":\"Description\",\"descriptionEn\":\"Description\",\"priceEGP\":450,\"priceUSD\":20,\"stock\":25,\"sku\":\"QA-PRODUCT-001\",\"isFeatured\":true,\"showOnHome\":true,\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/products"
+          }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"stock\":20,\"showOnHome\":false}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/products/{{productId}}"
+          }
+        },
+        { "name": "Delete Product", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/products/{{productId}}" } },
+        {
+          "name": "Upload Product Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }, { "key": "altText", "type": "text", "value": "QA product" }] },
+            "url": "{{baseUrl}}/admin/products/{{productId}}/images"
+          }
+        },
+        {
+          "name": "Update Product Image",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"sortOrder\":1,\"isPrimary\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/products/images/{{productImageId}}"
+          }
+        },
+        { "name": "Delete Product Image", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/products/images/{{productImageId}}" } }
+      ]
+    },
+    {
+      "name": "Articles",
+      "item": [
+        { "name": "List Article Categories", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/article-categories?lang=en" } },
+        { "name": "List Article Tags", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/article-tags?lang=en" } },
+        { "name": "List Articles", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/articles?page=1&limit=20&lang=en" } },
+        { "name": "Get Article By Slug", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/articles/slug/qa-article?lang=en" } },
+        { "name": "Get Article", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/articles/{{articleId}}?lang=en" } }
+      ]
+    },
+    {
+      "name": "Admin Articles",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "List Article Categories", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/article-categories?page=1&limit=20" } },
+        { "name": "Get Article Category", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/article-categories/{{articleCategoryId}}" } },
+        {
+          "name": "Create Article Category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"nameAr\":\"QA Articles\",\"nameEn\":\"QA Articles\",\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/article-categories"
+          }
+        },
+        {
+          "name": "Update Article Category",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/article-categories/{{articleCategoryId}}"
+          }
+        },
+        { "name": "Delete Article Category", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/article-categories/{{articleCategoryId}}" } },
+        { "name": "List Article Tags", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/article-tags?page=1&limit=20" } },
+        { "name": "Get Article Tag", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/article-tags/{{articleTagId}}" } },
+        {
+          "name": "Create Article Tag",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"nameAr\":\"QA Tag\",\"nameEn\":\"QA Tag\",\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/article-tags"
+          }
+        },
+        {
+          "name": "Update Article Tag",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/article-tags/{{articleTagId}}"
+          }
+        },
+        { "name": "Delete Article Tag", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/article-tags/{{articleTagId}}" } },
+        { "name": "List Admin Articles", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/articles?page=1&limit=20" } },
+        { "name": "Get Admin Article", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/articles/{{articleId}}" } },
+        {
+          "name": "Create Article",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{articleCategoryId}}\",\"tagIds\":[\"{{articleTagId}}\"],\"titleAr\":\"QA Article\",\"titleEn\":\"QA Article\",\"contentAr\":\"Content\",\"contentEn\":\"Content\",\"isPublished\":true,\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/articles"
+          }
+        },
+        {
+          "name": "Update Article",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isPublished\":false}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/articles/{{articleId}}"
+          }
+        },
+        { "name": "Delete Article", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/articles/{{articleId}}" } }
+      ]
+    },
+    {
+      "name": "Contact And Consultations",
+      "item": [
+        {
+          "name": "Submit Contact Message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"QA User\",\"email\":\"qa.contact@example.com\",\"phoneNumber\":\"+201001234567\",\"subject\":\"QA message\",\"message\":\"This is a QA contact message.\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/contact-us"
+          }
+        },
+        { "name": "List Consultation Categories", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/consultation-categories?lang=en" } },
+        {
+          "name": "Submit Consultation Request",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{consultationCategoryId}}\",\"fullName\":\"QA User\",\"email\":\"qa.consultation@example.com\",\"phoneNumber\":\"+201001234567\",\"message\":\"I need a consultation.\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/consultations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Contact And Consultations",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "List Contact Messages", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/contact-us?page=1&limit=20" } },
+        { "name": "Get Contact Message", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/contact-us/{{contactMessageId}}" } },
+        { "name": "Delete Contact Message", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/contact-us/{{contactMessageId}}" } },
+        { "name": "List Consultation Categories", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/consultation-categories?page=1&limit=20" } },
+        { "name": "Get Consultation Category", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/consultation-categories/{{consultationCategoryId}}" } },
+        {
+          "name": "Create Consultation Category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"nameAr\":\"QA Consultation\",\"nameEn\":\"QA Consultation\",\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/consultation-categories"
+          }
+        },
+        {
+          "name": "Update Consultation Category",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/consultation-categories/{{consultationCategoryId}}"
+          }
+        },
+        { "name": "Delete Consultation Category", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/consultation-categories/{{consultationCategoryId}}" } },
+        { "name": "List Consultation Requests", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/consultations?page=1&limit=20" } },
+        { "name": "Get Consultation Request", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/consultations/{{consultationId}}" } },
+        { "name": "Delete Consultation Request", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/consultations/{{consultationId}}" } }
+      ]
+    },
+    {
+      "name": "Wishlist And Cart",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Add Wishlist Item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"itemType\":\"COURSE\",\"itemId\":\"{{courseId}}\"}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/wishlist"
+          }
+        },
+        { "name": "List Wishlist", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/wishlist?page=1&limit=20&itemType=COURSE" } },
+        { "name": "Check Wishlist Item", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/wishlist/check?itemType=COURSE&itemId={{courseId}}" } },
+        { "name": "Delete Wishlist Item", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/wishlist/{{wishlistItemId}}" } },
+        {
+          "name": "Add Cart Item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"itemType\":\"PRODUCT\",\"itemId\":\"{{productId}}\",\"quantity\":1}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/cart/items"
+          }
+        },
+        { "name": "Get Cart", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/cart?page=1&limit=20" } },
+        {
+          "name": "Update Cart Item",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"quantity\":2}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/cart/items/{{cartItemId}}"
+          }
+        },
+        { "name": "Delete Cart Item", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/cart/items/{{cartItemId}}" } },
+        { "name": "Clear Cart", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/cart" } },
+        { "name": "Cart Summary", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/cart/summary" } }
+      ]
+    },
+    {
+      "name": "Orders",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"shippingAddressId\":\"{{addressId}}\",\"notes\":\"QA order\",\"couponId\":\"{{couponId}}\"}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        { "name": "List Orders", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/orders?page=1&limit=20" } },
+        { "name": "Get Order", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/orders/{{orderId}}" } },
+        { "name": "Cancel Order", "request": { "method": "PATCH", "header": [], "url": "{{baseUrl}}/orders/{{orderId}}/cancel" } }
+      ]
+    },
+    {
+      "name": "Admin Orders",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "List Admin Orders", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/orders?page=1&limit=20&status=PENDING" } },
+        { "name": "Get Admin Order", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/orders/{{orderId}}" } },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"status\":\"PROCESSING\",\"paymentStatus\":\"PENDING\"}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/orders/{{orderId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Fawry Payment",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"orderId\":\"{{orderId}}\"}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/payments/fawry/create"
+          }
+        },
+        {
+          "name": "Fawry Webhook - Placeholder Invalid Signature",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"merchantRefNumber\":\"DS-2026-000001\",\"referenceNumber\":\"963455678\",\"orderAmount\":\"100.00\",\"paymentAmount\":\"100.00\",\"orderStatus\":\"PAID\",\"paymentMethod\":\"PAYATFAWRY\",\"signature\":\"invalid\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/payments/fawry/webhook"
+          }
+        },
+        {
+          "name": "Get Fawry Status",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [],
+            "url": "{{baseUrl}}/payments/fawry/status/{{orderId}}"
+          }
+        },
+        {
+          "name": "Cancel Fawry Payment",
+          "request": {
+            "method": "PATCH",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [],
+            "url": "{{baseUrl}}/payments/fawry/cancel/{{orderId}}"
+          }
+        },
+        {
+          "name": "Create PayPal Payment",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"orderId\":\"{{orderId}}\"}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/payments/paypal/create"
+          }
+        },
+        {
+          "name": "PayPal Webhook - Placeholder Invalid Signature",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "paypal-transmission-id", "value": "placeholder" },
+              { "key": "paypal-transmission-time", "value": "2026-06-13T00:00:00Z" },
+              { "key": "paypal-cert-url", "value": "https://api-m.sandbox.paypal.com/certs/placeholder" },
+              { "key": "paypal-auth-algo", "value": "SHA256withRSA" },
+              { "key": "paypal-transmission-sig", "value": "invalid" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\":\"WH-PLACEHOLDER\",\"event_type\":\"CHECKOUT.ORDER.APPROVED\",\"resource\":{\"id\":\"PAYPAL-ORDER-ID\",\"status\":\"COMPLETED\"}}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/payments/paypal/webhook"
+          }
+        },
+        {
+          "name": "Get PayPal Status",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [],
+            "url": "{{baseUrl}}/payments/paypal/status/{{orderId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coupons And Referral",
+      "item": [
+        {
+          "name": "Validate Coupon",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"code\":\"{{couponCode}}\",\"orderId\":\"{{orderId}}\"}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/coupons/validate"
+          }
+        },
+        {
+          "name": "Apply Coupon",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"code\":\"{{couponCode}}\",\"orderId\":\"{{orderId}}\"}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/coupons/apply"
+          }
+        },
+        {
+          "name": "Remove Coupon",
+          "request": {
+            "method": "DELETE",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [],
+            "url": "{{baseUrl}}/coupons/remove/{{orderId}}"
+          }
+        },
+        {
+          "name": "My Referral Code",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [],
+            "url": "{{baseUrl}}/referrals/my-code"
+          }
+        },
+        {
+          "name": "My Referrals",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [],
+            "url": "{{baseUrl}}/referrals/my-referrals?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Apply Referral Code",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"code\":\"REFQA\"}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/referrals/apply-code"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Coupons And Referral",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Create Coupon",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"{{couponCode}}\",\"discountType\":\"PERCENTAGE\",\"discountValue\":10,\"currency\":\"EGP\",\"isActive\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/coupons"
+          }
+        },
+        { "name": "List Coupons", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/coupons?page=1&limit=20&code={{couponCode}}" } },
+        { "name": "Get Coupon", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/coupons/{{couponId}}" } },
+        {
+          "name": "Update Coupon",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/coupons/{{couponId}}"
+          }
+        },
+        { "name": "Delete Coupon", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/coupons/{{couponId}}" } },
+        { "name": "List Referrals", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/referrals?page=1&limit=20" } },
+        { "name": "Get Referral", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/referrals/{{referralId}}" } }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        { "name": "List Countries", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/locations/countries?lang=en" } },
+        { "name": "List Cities By Country", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/locations/countries/{{countryId}}/cities?lang=en" } },
+        { "name": "List Governorates", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/governorates?lang=en" } }
+      ]
+    },
+    {
+      "name": "Admin Locations",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Create Governorate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"nameAr\":\"QA Governorate\",\"nameEn\":\"QA Governorate\",\"shippingFee\":50,\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/governorates"
+          }
+        },
+        { "name": "List Admin Governorates", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/governorates?page=1&limit=20" } },
+        { "name": "Get Admin Governorate", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/governorates/{{governorateId}}" } },
+        {
+          "name": "Update Governorate",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"shippingFee\":60,\"isActive\":true}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/admin/governorates/{{governorateId}}"
+          }
+        },
+        { "name": "Delete Governorate", "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/admin/governorates/{{governorateId}}" } }
+      ]
+    },
+    {
+      "name": "Admin Analytics And Logs",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+      "item": [
+        { "name": "Dashboard Overview", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/dashboard/overview" } },
+        { "name": "Dashboard Revenue Daily EGP", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/dashboard/revenue?period=daily&currency=EGP" } },
+        { "name": "Dashboard Revenue Monthly USD", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/dashboard/revenue?period=monthly&currency=USD" } },
+        { "name": "Dashboard Orders", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/dashboard/orders" } },
+        { "name": "Dashboard Users", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/dashboard/users" } },
+        { "name": "Dashboard Content", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/dashboard/content" } },
+        { "name": "Notification Logs", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/notifications/logs?page=1&limit=20&status=SENT" } },
+        { "name": "Audit Logs", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/audit-logs?page=1&limit=20&action=CREATE_COURSE" } },
+        { "name": "Audit Log Detail", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/admin/audit-logs/{{auditLogId}}" } }
+      ]
+    },
+    {
+      "name": "Health And Docs",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health" } },
+        { "name": "Swagger UI", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/docs" } },
+        { "name": "Swagger JSON", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/docs-json" } }
+      ]
+    }
+  ]
+}

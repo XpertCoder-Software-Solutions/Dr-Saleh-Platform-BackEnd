@@ -6,13 +6,24 @@ services:
     container_name: dr-saleh-api
     restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 3000
       API_PREFIX: api
       LOG_LEVEL: info
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dr_saleh_platform?schema=public
-      JWT_SECRET: replace-with-a-strong-secret-at-least-32-chars
-      JWT_EXPIRES_IN: 1d
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dr_saleh_platform?schema=public&connect_timeout=30&pool_timeout=30
+      PRISMA_QUERY_TIMEOUT_MS: 30000
+      APP_PUBLIC_URL: http://localhost:3000
+      APP_PLATFORM_URL: http://localhost:3000
+      BRAND_LOGO_PATH: /brand/logo.png
+      BRAND_NAME: Dr. Saleh Platform
+      SUPPORT_EMAIL: support@example.com
+      BREVO_API_KEY: local-dev-placeholder-do-not-use-in-production
+      BREVO_SENDER_NAME: Dr. Saleh Platform
+      BREVO_SENDER_EMAIL: no-reply@example.com
+      JWT_ACCESS_SECRET: local-development-access-secret-at-least-32-chars
+      JWT_REFRESH_SECRET: local-development-refresh-secret-at-least-32-chars
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
       CORS_ALLOWED_ORIGINS: http://localhost:3000
       CORS_CREDENTIALS: false
       THROTTLE_TTL: 60000
@@ -21,6 +32,9 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 0
       REDIS_TLS: false
+      REFERRAL_REWARD_TYPE: PERCENTAGE
+      REFERRAL_REWARD_VALUE: 10
+      REFERRAL_COUPON_EXPIRES_DAYS: 30
     ports:
       - "3000:3000"
     depends_on:

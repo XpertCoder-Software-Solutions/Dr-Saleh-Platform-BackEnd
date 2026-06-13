@@ -28,6 +28,11 @@ import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
 import { diskStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -80,6 +85,13 @@ export class UsersController {
 
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
+  @AuditAction({
+    action: AuditActions.PasswordChanged,
+    entityType: AuditEntityTypes.User,
+    entityIdFromActor: true,
+    description: 'User changed password.',
+    includeBody: false,
+  })
   @ApiOperation({ summary: 'Change the current user password.' })
   @ApiOkResponse({ description: 'Password changed successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid password change request.' })

@@ -268,7 +268,7 @@ export class ArticlesService {
         articles: articles.map((article) =>
           this.toPublicArticle(article, query.lang),
         ),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -308,7 +308,7 @@ export class ArticlesService {
       message: 'Articles returned successfully',
       data: {
         articles: articles.map((article) => this.toArticle(article)),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }

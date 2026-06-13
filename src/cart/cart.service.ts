@@ -905,7 +905,8 @@ export class CartService {
   }
 
   private assertNever(value: never): never {
-    throw new BadRequestException(`Unsupported cart catalog item: ${value}`);
+    void value;
+    throw new BadRequestException('Unsupported cart catalog item.');
   }
 
   private handleDuplicateCartItemError(error: unknown): never {

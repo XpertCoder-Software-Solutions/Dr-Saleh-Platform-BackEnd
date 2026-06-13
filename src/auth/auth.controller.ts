@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -21,8 +22,16 @@ import {
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import type { Request } from 'express';
+import { AuditAction } from '../audit-logs/audit-action.decorator';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import {
+  AuthAuditContext,
   AuthService,
   LoginResult,
   MessageResult,
@@ -37,6 +46,14 @@ import { ResendEmailVerificationDto } from './dto/resend-email-verification.dto'
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+
+const AUTH_LOGIN_THROTTLE = { default: { limit: 10, ttl: 60_000 } } as const;
+const AUTH_OTP_REQUEST_THROTTLE = {
+  default: { limit: 3, ttl: 60_000 },
+} as const;
+const AUTH_OTP_VERIFY_THROTTLE = {
+  default: { limit: 10, ttl: 60_000 },
+} as const;
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -82,6 +99,7 @@ export class AuthController {
   }
 
   @Post('verify-email')
+  @Throttle(AUTH_OTP_VERIFY_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify a user email address using a 6-digit OTP.' })
   @ApiOkResponse({
@@ -97,11 +115,21 @@ export class AuthController {
       'OTP is missing, expired, invalid, exhausted, or email verified.',
   })
   @ApiNotFoundResponse({ description: 'User not found.' })
-  verifyEmail(@Body() verifyEmailDto: VerifyEmailDto): Promise<MessageResult> {
-    return this.authService.verifyEmail(verifyEmailDto);
+  @ApiTooManyRequestsResponse({
+    description: 'Too many email verification attempts.',
+  })
+  verifyEmail(
+    @Body() verifyEmailDto: VerifyEmailDto,
+    @Req() request: Request,
+  ): Promise<MessageResult> {
+    return this.authService.verifyEmail(
+      verifyEmailDto,
+      this.getAuditContext(request),
+    );
   }
 
   @Post('resend-email-verification')
+  @Throttle(AUTH_OTP_REQUEST_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend email verification OTP.' })
   @ApiOkResponse({
@@ -127,6 +155,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle(AUTH_LOGIN_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with verified email and password.' })
   @ApiOkResponse({
@@ -153,8 +182,12 @@ export class AuthController {
   @ApiForbiddenResponse({
     description: 'User is inactive or email is not verified.',
   })
-  login(@Body() loginDto: LoginDto): Promise<LoginResult> {
-    return this.authService.login(loginDto);
+  @ApiTooManyRequestsResponse({ description: 'Too many login attempts.' })
+  login(
+    @Body() loginDto: LoginDto,
+    @Req() request: Request,
+  ): Promise<LoginResult> {
+    return this.authService.login(loginDto, this.getAuditContext(request));
   }
 
   @Post('refresh-token')
@@ -182,6 +215,13 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
+  @AuditAction({
+    action: AuditActions.UserLogout,
+    entityType: AuditEntityTypes.User,
+    entityIdFromActor: true,
+    description: 'User logged out.',
+    includeBody: false,
+  })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout the current authenticated user.' })
   @ApiOkResponse({
@@ -198,6 +238,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @Throttle(AUTH_OTP_REQUEST_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Send a password reset OTP when the email exists.' })
   @ApiOkResponse({
@@ -217,11 +258,16 @@ export class AuthController {
   })
   forgotPassword(
     @Body() forgotPasswordDto: ForgotPasswordDto,
+    @Req() request: Request,
   ): Promise<MessageResult> {
-    return this.authService.forgotPassword(forgotPasswordDto);
+    return this.authService.forgotPassword(
+      forgotPasswordDto,
+      this.getAuditContext(request),
+    );
   }
 
   @Post('reset-password')
+  @Throttle(AUTH_OTP_VERIFY_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password using a 6-digit email OTP.' })
   @ApiOkResponse({
@@ -236,9 +282,31 @@ export class AuthController {
     description: 'OTP is missing, expired, invalid, or exhausted.',
   })
   @ApiNotFoundResponse({ description: 'User not found.' })
+  @ApiTooManyRequestsResponse({
+    description: 'Too many password reset attempts.',
+  })
   resetPassword(
     @Body() resetPasswordDto: ResetPasswordDto,
+    @Req() request: Request,
   ): Promise<MessageResult> {
-    return this.authService.resetPassword(resetPasswordDto);
+    return this.authService.resetPassword(
+      resetPasswordDto,
+      this.getAuditContext(request),
+    );
+  }
+
+  private getAuditContext(request: Request): AuthAuditContext {
+    const forwardedFor = this.getHeaderValue(
+      request.headers['x-forwarded-for'],
+    );
+
+    return {
+      ipAddress: forwardedFor?.split(',')[0]?.trim() ?? request.ip,
+      userAgent: this.getHeaderValue(request.headers['user-agent']),
+    };
+  }
+
+  private getHeaderValue(value: string | string[] | undefined) {
+    return Array.isArray(value) ? value[0] : value;
   }
 }

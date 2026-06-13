@@ -9,16 +9,22 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { AdminGuard } from '../auth/admin.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BookCategoriesService } from './book-categories.service';
 import { CreateBookCategoryDto } from './dto/create-book-category.dto';
 import { UpdateBookCategoryDto } from './dto/update-book-category.dto';
@@ -45,18 +51,26 @@ export class BookCategoriesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a book category without image.' })
   @ApiCreatedResponse({ description: 'Book category created successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid request body.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   create(@Body() createBookCategoryDto: CreateBookCategoryDto) {
     return this.bookCategoriesService.create(createBookCategoryDto);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update one book category.' })
   @ApiOkResponse({ description: 'Book category updated successfully.' })
   @ApiBadRequestResponse({ description: 'Invalid request body.' })
   @ApiNotFoundResponse({ description: 'Book category not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateBookCategoryDto: UpdateBookCategoryDto,
@@ -66,9 +80,13 @@ export class BookCategoriesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Hard delete one book category.' })
   @ApiOkResponse({ description: 'Book category deleted successfully.' })
   @ApiNotFoundResponse({ description: 'Book category not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
   @ApiConflictResponse({
     description: 'Book category has books assigned to it.',
   })

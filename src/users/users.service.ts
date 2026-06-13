@@ -7,9 +7,10 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { unlink } from 'fs/promises';
-import { join, resolve } from 'path';
+import { resolve } from 'path';
 import { PrismaService } from '../database/prisma.service';
 import { PasswordService } from '../auth/services/password.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -47,6 +48,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getProfile(userId: string): Promise<ReturnType<typeof this.toProfile>> {
@@ -145,6 +147,8 @@ export class UsersService {
       where: { id: userId },
       select: {
         id: true,
+        fullName: true,
+        email: true,
         passwordHash: true,
       },
     });
@@ -183,6 +187,12 @@ export class UsersService {
         passwordHash,
         hashedRefreshToken: null,
       },
+    });
+
+    await this.notificationsService.sendPasswordChanged({
+      userId: user.id,
+      email: user.email,
+      fullName: user.fullName,
     });
 
     return {

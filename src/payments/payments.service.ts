@@ -6,6 +6,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
@@ -19,10 +20,16 @@ import {
   Prisma,
 } from '@prisma/client';
 import { createHash, timingSafeEqual } from 'crypto';
+import { AuditLogService } from '../audit-logs/audit-log.service';
+import {
+  AuditActions,
+  AuditEntityTypes,
+} from '../audit-logs/audit-log.constants';
 import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import fawryConfig, { type FawryConfig } from '../config/fawry.config';
 import paypalConfig, { type PaypalConfig } from '../config/paypal.config';
 import { PrismaService } from '../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { CreateFawryPaymentDto } from './dto/create-fawry-payment.dto';
 import { CreatePaypalPaymentDto } from './dto/create-paypal-payment.dto';
@@ -87,9 +94,36 @@ const orderPaymentSelect = {
   },
 } satisfies Prisma.OrderSelect;
 
+const paymentNotificationOrderSelect = {
+  id: true,
+  orderNumber: true,
+  currency: true,
+  totalAmount: true,
+  user: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+    },
+  },
+  items: {
+    select: {
+      itemType: true,
+      titleAr: true,
+      titleEn: true,
+    },
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+} satisfies Prisma.OrderSelect;
+
 type PaymentRecord = Prisma.PaymentGetPayload<{ select: typeof paymentSelect }>;
 type OrderPaymentRecord = Prisma.OrderGetPayload<{
   select: typeof orderPaymentSelect;
+}>;
+type PaymentNotificationOrderRecord = Prisma.OrderGetPayload<{
+  select: typeof paymentNotificationOrderSelect;
 }>;
 
 type RequiredFawryConfig = {
@@ -211,6 +245,9 @@ export class PaymentsService {
     @Inject(paypalConfig.KEY)
     private readonly paypalConfiguration: PaypalConfig,
     private readonly referralsService: ReferralsService,
+    private readonly notificationsService: NotificationsService,
+    @Optional()
+    private readonly auditLogService?: AuditLogService,
   ) {}
 
   async createFawryPayment(
@@ -278,6 +315,8 @@ export class PaymentsService {
       payment,
       fawryResponse,
     );
+
+    this.logPaymentCreatedAudit(order, updatedPayment);
 
     return {
       message: 'Fawry payment request created successfully',
@@ -479,6 +518,8 @@ export class PaymentsService {
       paypalOrder,
       approvalUrl,
     );
+
+    this.logPaymentCreatedAudit(order, payment);
 
     return {
       message: 'PayPal order created successfully',
@@ -940,6 +981,11 @@ export class PaymentsService {
 
         await this.grantPaidDigitalAccess(tx, payment.orderId, payment.userId);
       } else if (nextStatus === PaymentStatus.CANCELLED) {
+        const shouldReleaseStock = await this.shouldReleaseReservedStock(
+          tx,
+          payment.orderId,
+        );
+
         await tx.order.update({
           where: { id: payment.orderId },
           data: {
@@ -947,6 +993,10 @@ export class PaymentsService {
             paymentStatus: PaymentStatus.CANCELLED,
           },
         });
+
+        if (shouldReleaseStock && payment.status !== PaymentStatus.CANCELLED) {
+          await this.releasePhysicalStockReservation(tx, payment.orderId);
+        }
       } else if (nextStatus === PaymentStatus.FAILED) {
         await tx.order.update({
           where: { id: payment.orderId },
@@ -967,10 +1017,21 @@ export class PaymentsService {
       return updatedPayment;
     });
 
+    const statusChanged = payment.status !== nextStatus;
+
     if (nextStatus === PaymentStatus.PAID) {
       await this.referralsService.rewardReferralAfterFirstPaidOrder(
         payment.userId,
       );
+    }
+
+    if (statusChanged) {
+      await this.sendPaymentStatusNotification(
+        payment.orderId,
+        nextStatus,
+        updatedPaymentResult.failureReason,
+      );
+      this.logPaymentStatusAudit(updatedPaymentResult, nextStatus);
     }
 
     return updatedPaymentResult;
@@ -1061,6 +1122,11 @@ export class PaymentsService {
 
         await this.grantPaidDigitalAccess(tx, payment.orderId, payment.userId);
       } else if (nextStatus === PaymentStatus.CANCELLED) {
+        const shouldReleaseStock = await this.shouldReleaseReservedStock(
+          tx,
+          payment.orderId,
+        );
+
         await tx.order.update({
           where: { id: payment.orderId },
           data: {
@@ -1068,6 +1134,10 @@ export class PaymentsService {
             paymentStatus: PaymentStatus.CANCELLED,
           },
         });
+
+        if (shouldReleaseStock && payment.status !== PaymentStatus.CANCELLED) {
+          await this.releasePhysicalStockReservation(tx, payment.orderId);
+        }
       } else if (nextStatus === PaymentStatus.FAILED) {
         await tx.order.update({
           where: { id: payment.orderId },
@@ -1088,13 +1158,107 @@ export class PaymentsService {
       return updatedPayment;
     });
 
+    const statusChanged = payment.status !== nextStatus;
+
     if (nextStatus === PaymentStatus.PAID) {
       await this.referralsService.rewardReferralAfterFirstPaidOrder(
         payment.userId,
       );
     }
 
+    if (statusChanged) {
+      await this.sendPaymentStatusNotification(
+        payment.orderId,
+        nextStatus,
+        updatedPaymentResult.failureReason,
+      );
+      this.logPaymentStatusAudit(updatedPaymentResult, nextStatus);
+    }
+
     return updatedPaymentResult;
+  }
+
+  private logPaymentCreatedAudit(
+    order: OrderPaymentRecord,
+    payment: PaymentRecord,
+  ): void {
+    void this.auditLogService?.logAction({
+      actorUserId: order.userId,
+      actorEmail: order.user.email,
+      actorRole: 'User',
+      action: AuditActions.PaymentCreated,
+      entityType: AuditEntityTypes.Payment,
+      entityId: payment.id,
+      description: 'Payment request created.',
+      metadata: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        provider: payment.provider,
+        method: payment.method,
+        status: payment.status,
+        amount: this.toNumberFromDecimal(payment.amount),
+        currency: payment.currency,
+      },
+    });
+  }
+
+  private logPaymentStatusAudit(
+    payment: PaymentRecord,
+    status: PaymentStatus,
+  ): void {
+    const action = this.getPaymentStatusAuditAction(status);
+
+    if (!action) {
+      return;
+    }
+
+    void this.auditLogService?.logAction({
+      action,
+      entityType: AuditEntityTypes.Payment,
+      entityId: payment.id,
+      description: `Payment status changed to ${status}.`,
+      metadata: {
+        userId: payment.userId,
+        orderId: payment.orderId,
+        provider: payment.provider,
+        method: payment.method,
+        status,
+        failureReason: payment.failureReason,
+      },
+    });
+
+    if (status === PaymentStatus.REFUNDED) {
+      void this.auditLogService?.logAction({
+        action: AuditActions.RefundProcessed,
+        entityType: AuditEntityTypes.Order,
+        entityId: payment.orderId,
+        description: 'Payment refund processed.',
+        metadata: {
+          userId: payment.userId,
+          paymentId: payment.id,
+          provider: payment.provider,
+          method: payment.method,
+        },
+      });
+    }
+  }
+
+  private getPaymentStatusAuditAction(
+    status: PaymentStatus,
+  ): string | undefined {
+    if (status === PaymentStatus.PAID) {
+      return AuditActions.PaymentSuccess;
+    }
+
+    if (status === PaymentStatus.FAILED) {
+      return AuditActions.PaymentFailed;
+    }
+
+    if (status === PaymentStatus.REFUNDED) {
+      return AuditActions.PaymentRefunded;
+    }
+
+    return undefined;
   }
 
   private async markPaymentCancelled(
@@ -1116,6 +1280,11 @@ export class PaymentsService {
         select: paymentSelect,
       });
 
+      const shouldReleaseStock = await this.shouldReleaseReservedStock(
+        tx,
+        payment.orderId,
+      );
+
       await tx.order.update({
         where: { id: payment.orderId },
         data: {
@@ -1123,6 +1292,10 @@ export class PaymentsService {
           paymentStatus: PaymentStatus.CANCELLED,
         },
       });
+
+      if (shouldReleaseStock && payment.status !== PaymentStatus.CANCELLED) {
+        await this.releasePhysicalStockReservation(tx, payment.orderId);
+      }
       await this.upsertPaymentTransaction(tx, updatedPayment, responseJson);
 
       return updatedPayment;
@@ -1184,6 +1357,145 @@ export class PaymentsService {
         }),
       ),
     ]);
+  }
+
+  private async shouldReleaseReservedStock(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<boolean> {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: {
+        status: true,
+        paymentStatus: true,
+      },
+    });
+
+    return (
+      order !== null &&
+      order.status === OrderStatus.PENDING &&
+      order.paymentStatus !== PaymentStatus.PAID
+    );
+  }
+
+  private async releasePhysicalStockReservation(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<void> {
+    const orderItems = await tx.orderItem.findMany({
+      where: {
+        orderId,
+        itemType: { in: [OrderItemType.PRODUCT, OrderItemType.BOOK] },
+      },
+      select: {
+        itemType: true,
+        itemId: true,
+        quantity: true,
+      },
+    });
+    const bookFormatIds = orderItems
+      .filter((item) => item.itemType === OrderItemType.BOOK)
+      .map((item) => item.itemId);
+    const physicalBookFormatIds =
+      bookFormatIds.length === 0
+        ? new Set<string>()
+        : new Set(
+            (
+              await tx.bookFormat.findMany({
+                where: {
+                  id: { in: bookFormatIds },
+                  formatType: BookFormatType.Physical,
+                },
+                select: { id: true },
+              })
+            ).map((bookFormat) => bookFormat.id),
+          );
+
+    await Promise.all(
+      orderItems.map((item) => {
+        if (item.itemType === OrderItemType.PRODUCT) {
+          return tx.product.update({
+            where: { id: item.itemId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+
+        if (physicalBookFormatIds.has(item.itemId)) {
+          return tx.bookFormat.update({
+            where: { id: item.itemId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+
+        return Promise.resolve();
+      }),
+    );
+  }
+
+  private async sendPaymentStatusNotification(
+    orderId: string,
+    status: PaymentStatus,
+    failureReason?: string | null,
+  ): Promise<void> {
+    if (
+      status !== PaymentStatus.PAID &&
+      status !== PaymentStatus.FAILED &&
+      status !== PaymentStatus.REFUNDED
+    ) {
+      return;
+    }
+
+    const order = await this.findPaymentNotificationOrder(orderId);
+
+    if (!order) {
+      return;
+    }
+
+    const input = {
+      userId: order.user.id,
+      email: order.user.email,
+      fullName: order.user.fullName,
+      orderNumber: order.orderNumber,
+      totalAmount: this.toNumberFromDecimal(order.totalAmount),
+      currency: order.currency,
+    };
+
+    if (status === PaymentStatus.PAID) {
+      await Promise.all([
+        this.notificationsService.sendPaymentSuccess(input),
+        ...order.items
+          .filter((item) => item.itemType === OrderItemType.COURSE)
+          .map((item) =>
+            this.notificationsService.sendCourseAccessGranted({
+              userId: order.user.id,
+              email: order.user.email,
+              fullName: order.user.fullName,
+              courseTitleAr: item.titleAr,
+              courseTitleEn: item.titleEn,
+            }),
+          ),
+      ]);
+      return;
+    }
+
+    if (status === PaymentStatus.FAILED) {
+      await this.notificationsService.sendPaymentFailed({
+        ...input,
+        failureReason,
+      });
+      return;
+    }
+
+    await this.notificationsService.sendRefundProcessed(input);
+  }
+
+  private async findPaymentNotificationOrder(
+    orderId: string,
+  ): Promise<PaymentNotificationOrderRecord | null> {
+    return this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: paymentNotificationOrderSelect,
+    });
   }
 
   private async upsertPaymentTransaction(
@@ -1865,7 +2177,28 @@ export class PaymentsService {
   }
 
   private toStringValue(value: unknown): string {
-    return value === undefined || value === null ? '' : String(value);
+    if (value === undefined || value === null) {
+      return '';
+    }
+
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      typeof value === 'bigint'
+    ) {
+      return String(value);
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    try {
+      return JSON.stringify(value) ?? '';
+    } catch {
+      return '';
+    }
   }
 
   private optionalStringValue(value: unknown): string | undefined {

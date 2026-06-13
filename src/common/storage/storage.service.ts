@@ -11,6 +11,8 @@ import {
   S3Client,
   S3ServiceException,
 } from '@aws-sdk/client-s3';
+import { fromInstanceMetadata } from '@smithy/credential-provider-imds';
+import type { AwsCredentialIdentity, Provider } from '@smithy/types';
 import { randomUUID } from 'crypto';
 import { readFile } from 'fs/promises';
 import { extname } from 'path';
@@ -77,16 +79,7 @@ export class StorageService {
 
     this.s3Client = new S3Client({
       region: this.region,
-      credentials: {
-        accessKeyId: this.requireConfigValue(
-          'AWS_ACCESS_KEY_ID',
-          config.accessKeyId,
-        ),
-        secretAccessKey: this.requireConfigValue(
-          'AWS_SECRET_ACCESS_KEY',
-          config.secretAccessKey,
-        ),
-      },
+      credentials: this.buildCredentialsProvider(),
       endpoint: this.endpoint,
       forcePathStyle: this.forcePathStyle,
     });
@@ -181,6 +174,47 @@ export class StorageService {
     return {
       key,
       url: this.getPublicUrl(key),
+    };
+  }
+
+  private buildCredentialsProvider(): Provider<AwsCredentialIdentity> {
+    const iamRoleProvider = fromInstanceMetadata({
+      maxRetries: 0,
+      timeout: 1000,
+    });
+    let loggedEnvFallback = false;
+
+    return async () => {
+      try {
+        return await iamRoleProvider();
+      } catch (error) {
+        const envCredentials = this.getEnvironmentCredentials();
+
+        if (envCredentials) {
+          if (!loggedEnvFallback) {
+            this.logger.warn(
+              'EC2 IAM role credentials unavailable; using configured environment AWS credentials.',
+            );
+            loggedEnvFallback = true;
+          }
+
+          return envCredentials;
+        }
+
+        throw error;
+      }
+    };
+  }
+
+  private getEnvironmentCredentials(): AwsCredentialIdentity | null {
+    if (!this.config.accessKeyId || !this.config.secretAccessKey) {
+      return null;
+    }
+
+    return {
+      accessKeyId: this.config.accessKeyId,
+      secretAccessKey: this.config.secretAccessKey,
+      sessionToken: this.config.sessionToken,
     };
   }
 

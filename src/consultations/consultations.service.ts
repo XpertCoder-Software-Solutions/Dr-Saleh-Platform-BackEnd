@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -11,7 +10,7 @@ import {
   getPaginationParams,
 } from '../common/utils/pagination';
 import { PrismaService } from '../database/prisma.service';
-import { BrevoEmailService } from '../email/brevo-email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AdminConsultationQueryDto } from './dto/admin-consultation-query.dto';
 import {
   ConsultationCategoryQueryDto,
@@ -60,11 +59,9 @@ type EmptyData = Record<string, never>;
 
 @Injectable()
 export class ConsultationsService {
-  private readonly logger = new Logger(ConsultationsService.name);
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly brevoEmailService: BrevoEmailService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async findActiveCategories(query: ConsultationCategoryQueryDto) {
@@ -103,10 +100,23 @@ export class ConsultationsService {
         id: true,
         fullName: true,
         email: true,
+        consultationTopic: true,
       },
     });
 
-    await this.sendConfirmationEmail(request.email, request.fullName);
+    await Promise.all([
+      this.notificationsService.sendConsultationRequestSubmitted({
+        email: request.email,
+        fullName: request.fullName,
+        topic: request.consultationTopic,
+      }),
+      this.notificationsService.sendAdminConsultationRequestSubmitted({
+        email: request.email,
+        requesterEmail: request.email,
+        fullName: request.fullName,
+        topic: request.consultationTopic,
+      }),
+    ]);
 
     return {
       message:
@@ -210,7 +220,7 @@ export class ConsultationsService {
       message: 'Consultation requests returned successfully',
       data: {
         requests: requests.map((request) => this.toRequest(request)),
-        meta: buildPaginationMeta(page, limit, total),
+        pagination: buildPaginationMeta(page, limit, total),
       },
     };
   }
@@ -296,23 +306,6 @@ export class ConsultationsService {
     }
 
     return where;
-  }
-
-  private async sendConfirmationEmail(
-    email: string,
-    fullName: string,
-  ): Promise<void> {
-    try {
-      await this.brevoEmailService.sendConsultationConfirmation(
-        email,
-        fullName,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to send consultation confirmation email to ${email}.`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    }
   }
 
   private normalizeEmail(email: string): string {
