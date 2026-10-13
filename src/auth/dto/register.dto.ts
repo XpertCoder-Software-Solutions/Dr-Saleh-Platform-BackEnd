@@ -70,7 +70,8 @@ export class RegisterDto {
   @ApiPropertyOptional({
     enum: Gender,
     example: Gender.Female,
-    description: 'Optional gender. Used to address the user with gendered copy.',
+    description:
+      'Optional gender. Used to address the user with gendered copy.',
   })
   @IsOptional()
   @IsEnum(Gender)

@@ -388,7 +388,9 @@ export class CoursesService {
     return {
       message: 'Courses returned successfully',
       data: {
-        courses: courses.map((course) => this.toCourseSummary(course)),
+        courses: await this.withCourseStats(
+          courses.map((course) => this.toCourseSummary(course)),
+        ),
         pagination: buildPaginationMeta(page, limit, total),
       },
     };
@@ -725,7 +727,9 @@ export class CoursesService {
       take: 20,
     });
 
-    return courses.map((course) => this.toCourseSummary(course));
+    return this.withCourseStats(
+      courses.map((course) => this.toCourseSummary(course)),
+    );
   }
 
   async findFeaturedCourses() {
@@ -739,7 +743,9 @@ export class CoursesService {
       take: 20,
     });
 
-    return courses.map((course) => this.toCourseSummary(course));
+    return this.withCourseStats(
+      courses.map((course) => this.toCourseSummary(course)),
+    );
   }
 
   async findCourseById(id: string) {
@@ -755,7 +761,92 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
-    return this.toCourse(course, { includeProtectedLessonKeys: false });
+    const [withStats] = await this.withCourseStats([{ id: course.id }]);
+
+    return {
+      ...this.toCourse(course, { includeProtectedLessonKeys: false }),
+      lessonsCount: withStats.lessonsCount,
+      totalDurationSeconds: withStats.totalDurationSeconds,
+      ratingAverage: withStats.ratingAverage,
+      ratingCount: withStats.ratingCount,
+    };
+  }
+
+  findPublicCategories() {
+    return this.prisma.courseCategory.findMany({
+      where: { isActive: true, courses: { some: { isActive: true } } },
+      select: courseCategorySelect,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /**
+   * Adds lesson count, total video duration and review rating to course
+   * summaries so cards can show them without loading every course.
+   */
+  private async withCourseStats<T extends { id: string }>(
+    courses: T[],
+  ): Promise<
+    (T & {
+      lessonsCount: number;
+      totalDurationSeconds: number;
+      ratingAverage: number | null;
+      ratingCount: number;
+    })[]
+  > {
+    if (courses.length === 0) {
+      return [];
+    }
+
+    const ids = courses.map((course) => course.id);
+    const [lessons, ratings] = await Promise.all([
+      this.prisma.lesson.findMany({
+        where: {
+          isActive: true,
+          section: { courseId: { in: ids }, isActive: true },
+        },
+        select: {
+          videoDurationSeconds: true,
+          section: { select: { courseId: true } },
+        },
+      }),
+      this.prisma.courseReview.groupBy({
+        by: ['courseId'],
+        where: { courseId: { in: ids }, isActive: true },
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const lessonStats = new Map<string, { count: number; seconds: number }>();
+    for (const lesson of lessons) {
+      const key = lesson.section.courseId;
+      const current = lessonStats.get(key) ?? { count: 0, seconds: 0 };
+      current.count += 1;
+      current.seconds += lesson.videoDurationSeconds ?? 0;
+      lessonStats.set(key, current);
+    }
+
+    const ratingStats = new Map(
+      ratings.map((rating) => [
+        rating.courseId,
+        {
+          average:
+            rating._avg.rating === null
+              ? null
+              : Math.round(rating._avg.rating * 10) / 10,
+          count: rating._count._all,
+        },
+      ]),
+    );
+
+    return courses.map((course) => ({
+      ...course,
+      lessonsCount: lessonStats.get(course.id)?.count ?? 0,
+      totalDurationSeconds: lessonStats.get(course.id)?.seconds ?? 0,
+      ratingAverage: ratingStats.get(course.id)?.average ?? null,
+      ratingCount: ratingStats.get(course.id)?.count ?? 0,
+    }));
   }
 
   async findMyCourses(userId: string) {
