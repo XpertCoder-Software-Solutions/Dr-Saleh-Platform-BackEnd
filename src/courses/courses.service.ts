@@ -1143,7 +1143,17 @@ export class CoursesService {
       throw new NotFoundException('Certificate not found.');
     }
 
-    return this.toCertificate(certificate);
+    // Public endpoint: show who holds the certificate, never their email or ids.
+    return {
+      certificateNumber: certificate.certificateNumber,
+      issuedAt: certificate.issuedAt,
+      holderName: certificate.user.fullName,
+      course: {
+        id: certificate.course.id,
+        titleAr: certificate.course.titleAr,
+        titleEn: certificate.course.titleEn,
+      },
+    };
   }
 
   private async findCategoryOrThrow(id: string): Promise<CourseCategoryRecord> {
