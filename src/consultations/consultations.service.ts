@@ -19,6 +19,7 @@ import {
 import { CreateConsultationCategoryDto } from './dto/create-consultation-category.dto';
 import { CreateConsultationRequestDto } from './dto/create-consultation-request.dto';
 import { UpdateConsultationCategoryDto } from './dto/update-consultation-category.dto';
+import { UpdateConsultationRequestDto } from './dto/update-consultation-request.dto';
 
 const consultationCategorySelect = {
   id: true,
@@ -41,7 +42,15 @@ const consultationRequestSelect = {
   email: true,
   consultationTopic: true,
   notes: true,
+  childAge: true,
+  relation: true,
+  sessionType: true,
+  preferredTime: true,
+  status: true,
+  scheduledAt: true,
+  adminNotes: true,
   createdAt: true,
+  updatedAt: true,
   category: {
     select: consultationCategorySelect,
   },
@@ -95,6 +104,10 @@ export class ConsultationsService {
         email: this.normalizeEmail(createConsultationRequestDto.email),
         consultationTopic: createConsultationRequestDto.consultationTopic,
         notes: createConsultationRequestDto.notes,
+        childAge: createConsultationRequestDto.childAge,
+        relation: createConsultationRequestDto.relation,
+        sessionType: createConsultationRequestDto.sessionType,
+        preferredTime: createConsultationRequestDto.preferredTime,
       },
       select: {
         id: true,
@@ -238,6 +251,43 @@ export class ConsultationsService {
     return this.toRequest(request);
   }
 
+  async adminUpdateRequest(
+    id: string,
+    updateDto: UpdateConsultationRequestDto,
+  ) {
+    await this.adminFindRequest(id);
+
+    const data: Prisma.ConsultationRequestUpdateInput = {};
+
+    if (updateDto.status !== undefined) {
+      data.status = updateDto.status;
+    }
+
+    if (updateDto.scheduledAt !== undefined) {
+      data.scheduledAt =
+        updateDto.scheduledAt === null ? null : new Date(updateDto.scheduledAt);
+    }
+
+    if (updateDto.adminNotes !== undefined) {
+      data.adminNotes = updateDto.adminNotes || null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('At least one field must be provided.');
+    }
+
+    const request = await this.prisma.consultationRequest.update({
+      where: { id },
+      data,
+      select: consultationRequestSelect,
+    });
+
+    return {
+      message: 'Consultation request updated successfully',
+      data: { request: this.toRequest(request) },
+    };
+  }
+
   async adminDeleteRequest(
     id: string,
   ): Promise<{ message: string; data: EmptyData }> {
@@ -294,6 +344,10 @@ export class ConsultationsService {
       where.categoryId = query.categoryId;
     }
 
+    if (query.status) {
+      where.status = query.status;
+    }
+
     if (search) {
       where.OR = [
         { fullName: { contains: search, mode: 'insensitive' } },
@@ -337,7 +391,15 @@ export class ConsultationsService {
       email: request.email,
       consultationTopic: request.consultationTopic,
       notes: request.notes,
+      childAge: request.childAge,
+      relation: request.relation,
+      sessionType: request.sessionType,
+      preferredTime: request.preferredTime,
+      status: request.status,
+      scheduledAt: request.scheduledAt,
+      adminNotes: request.adminNotes,
       createdAt: request.createdAt,
+      updatedAt: request.updatedAt,
       category: request.category,
     };
   }

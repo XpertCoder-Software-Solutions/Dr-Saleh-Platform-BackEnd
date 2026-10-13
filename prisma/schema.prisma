@@ -915,18 +915,27 @@ model ConsultationRequest {
   id                String               @id @default(uuid()) @db.Uuid
   categoryId        String               @db.Uuid
   fullName          String
-  age               Int
-  gender            ConsultationGender
+  age               Int?
+  gender            ConsultationGender?
   country           String
   phone             String
   whatsApp          String
-  createdAt         DateTime             @default(now())
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime?                 @updatedAt
   email             String
   consultationTopic String
   notes             String?
-  category          ConsultationCategory @relation(fields: [categoryId], references: [id])
+  childAge          String?
+  relation          String?
+  sessionType       String?
+  preferredTime     String?
+  status            ConsultationRequestStatus @default(NEW)
+  scheduledAt       DateTime?
+  adminNotes        String?
+  category          ConsultationCategory      @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId])
+  @@index([status])
   @@index([phone])
   @@index([whatsApp])
   @@index([email])
@@ -1083,6 +1092,14 @@ enum LessonType {
 enum ConsultationGender {
   Male
   Female
+}
+
+enum ConsultationRequestStatus {
+  NEW
+  CONTACTED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
 enum Gender {

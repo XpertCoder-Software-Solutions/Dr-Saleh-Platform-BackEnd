@@ -1,6 +1,15 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ConsultationRequestStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { toOptionalNumber, trimString } from './dto-transformers';
 
 export class AdminConsultationQueryDto {
@@ -33,4 +42,9 @@ export class AdminConsultationQueryDto {
   @IsOptional()
   @IsUUID()
   categoryId?: string;
+
+  @ApiPropertyOptional({ enum: ConsultationRequestStatus })
+  @IsOptional()
+  @IsEnum(ConsultationRequestStatus)
+  status?: ConsultationRequestStatus;
 }
