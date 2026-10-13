@@ -284,13 +284,19 @@ export class OrdersService {
       this.findOwnedShippingAddress(userId, createOrderDto.shippingAddressId),
       this.ensureCouponIsUsable(createOrderDto.couponId),
     ]);
-    const currency = this.detectCurrency();
+    const currency = createOrderDto.currency ?? this.detectCurrency();
     const preparedItems = await this.prepareOrderItems(
       userId,
       cart.items,
       currency,
     );
     const hasPhysicalItems = preparedItems.some((item) => item.hasPhysicalItem);
+
+    if (hasPhysicalItems && currency !== Currency.EGP) {
+      throw new BadRequestException(
+        'Orders with products or physical books are paid in EGP.',
+      );
+    }
 
     if (hasPhysicalItems && !shippingAddress) {
       throw new BadRequestException(

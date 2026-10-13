@@ -19,7 +19,7 @@ import {
   PaymentStatus,
   Prisma,
 } from '@prisma/client';
-import { createHash, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import {
   AuditActions,
@@ -28,11 +28,16 @@ import {
 import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import fawryConfig, { type FawryConfig } from '../config/fawry.config';
 import paypalConfig, { type PaypalConfig } from '../config/paypal.config';
+import paymobConfig, { type PaymobConfig } from '../config/paymob.config';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { CreateFawryPaymentDto } from './dto/create-fawry-payment.dto';
 import { CreatePaypalPaymentDto } from './dto/create-paypal-payment.dto';
+import {
+  CreatePaymobPaymentDto,
+  PaymobChannel,
+} from './dto/create-paymob-payment.dto';
 import { FawryWebhookDto } from './dto/fawry-webhook.dto';
 
 const paymentSelect = {
@@ -184,6 +189,52 @@ type FawryCancelResponse = {
   orderStatus?: string;
 };
 
+type RequiredPaymobConfig = {
+  baseUrl: string;
+  checkoutUrl: string;
+  secretKey: string;
+  publicKey: string;
+  hmacSecret: string;
+  notificationUrl: string;
+  redirectionUrl: string;
+};
+
+type PaymobIntentionResponse = {
+  id?: string;
+  client_secret?: string;
+  intention_order_id?: number;
+  special_reference?: string;
+  status?: string;
+};
+
+/** Transaction object sent by Paymob in the processed callback (`obj`). */
+type PaymobTransaction = {
+  id?: number | string;
+  amount_cents?: number | string;
+  created_at?: string;
+  currency?: string;
+  error_occured?: boolean | string;
+  has_parent_transaction?: boolean | string;
+  integration_id?: number | string;
+  is_3d_secure?: boolean | string;
+  is_auth?: boolean | string;
+  is_capture?: boolean | string;
+  is_refunded?: boolean | string;
+  is_standalone_payment?: boolean | string;
+  is_voided?: boolean | string;
+  order?:
+    | { id?: number | string; merchant_order_id?: string }
+    | number
+    | string;
+  owner?: number | string;
+  pending?: boolean | string;
+  source_data?: { pan?: string; sub_type?: string; type?: string };
+  success?: boolean | string;
+  data?: { message?: string };
+  special_reference?: string;
+  merchant_order_id?: string;
+};
+
 type PaypalLink = {
   href: string;
   rel: string;
@@ -244,6 +295,8 @@ export class PaymentsService {
     private readonly fawryConfiguration: FawryConfig,
     @Inject(paypalConfig.KEY)
     private readonly paypalConfiguration: PaypalConfig,
+    @Inject(paymobConfig.KEY)
+    private readonly paymobConfiguration: PaymobConfig,
     private readonly referralsService: ReferralsService,
     private readonly notificationsService: NotificationsService,
     @Optional()
@@ -601,6 +654,560 @@ export class PaymentsService {
     };
   }
 
+  // ---------------------------------------------------------------- Paymob
+
+  /**
+   * Creates a Paymob payment intention for an owned pending EGP order and
+   * returns the Unified Checkout URL to redirect the buyer to.
+   */
+  async createPaymobPayment(
+    userId: string,
+    dto: CreatePaymobPaymentDto,
+  ): Promise<{
+    message: string;
+    data: { payment: ReturnType<typeof this.toPayment>; checkoutUrl: string };
+  }> {
+    const configuration = this.getRequiredPaymobConfig();
+    const integrationId = this.getPaymobIntegrationId(dto.channel);
+    const order = await this.findOwnedPendingOrderOrThrow(userId, dto.orderId);
+
+    if (order.currency !== Currency.EGP) {
+      throw new BadRequestException('Paymob payments support EGP orders only.');
+    }
+
+    this.assertNoConflictingActivePayment(
+      order,
+      PaymentProvider.PAYMOB,
+      PaymentMethod.PAYMOB_CHECKOUT,
+    );
+
+    const existingPayment = this.findPaymentForProvider(
+      order,
+      PaymentProvider.PAYMOB,
+      PaymentMethod.PAYMOB_CHECKOUT,
+    );
+
+    // A new intention per attempt: the buyer may switch channel (card -> wallet).
+    const attempt = Date.now().toString(36).toUpperCase();
+    const merchantRefNumber = `${order.orderNumber}-PAYMOB-${attempt}`;
+    const intention = await this.postPaymob<PaymobIntentionResponse>(
+      '/v1/intention/',
+      this.buildPaymobIntentionRequest(
+        order,
+        merchantRefNumber,
+        integrationId,
+        configuration,
+      ),
+      configuration,
+    );
+    const clientSecret = this.optionalStringValue(intention.client_secret);
+
+    if (!clientSecret) {
+      throw new BadGatewayException(
+        'Paymob intention response did not include a client secret.',
+      );
+    }
+
+    const checkoutUrl = `${configuration.checkoutUrl}?publicKey=${encodeURIComponent(
+      configuration.publicKey,
+    )}&clientSecret=${encodeURIComponent(clientSecret)}`;
+    const providerResponse = this.toJson({
+      intentionId: intention.id,
+      intentionOrderId: intention.intention_order_id,
+      status: intention.status,
+      channel: dto.channel,
+    });
+    const data = {
+      status: PaymentStatus.PENDING,
+      amount: order.totalAmount,
+      currency: order.currency,
+      merchantRefNumber,
+      providerReferenceNumber: null,
+      providerPaymentReference: this.optionalStringValue(intention.id) ?? null,
+      providerStatus: this.optionalStringValue(intention.status) ?? null,
+      providerResponse,
+      failureReason: null,
+      paidAt: null,
+      cancelledAt: null,
+    };
+
+    let payment: PaymentRecord;
+
+    try {
+      payment = existingPayment
+        ? await this.prisma.payment.update({
+            where: { id: existingPayment.id },
+            data,
+            select: paymentSelect,
+          })
+        : await this.prisma.payment.create({
+            data: {
+              ...data,
+              orderId: order.id,
+              userId: order.userId,
+              provider: PaymentProvider.PAYMOB,
+              method: PaymentMethod.PAYMOB_CHECKOUT,
+            },
+            select: paymentSelect,
+          });
+    } catch (error) {
+      this.handleDuplicatePaymentError(
+        error,
+        'Paymob payment already exists for this order.',
+      );
+    }
+
+    this.logPaymentCreatedAudit(order, payment);
+
+    return {
+      message: 'Paymob checkout created successfully',
+      data: { payment: this.toPayment(payment), checkoutUrl },
+    };
+  }
+
+  /** Transaction processed callback (POST, HMAC in the `hmac` query param). */
+  async handlePaymobWebhook(
+    body: Record<string, unknown>,
+    hmac: string | undefined,
+  ): Promise<{ message: string; data: { received: boolean } }> {
+    const configuration = this.getRequiredPaymobConfig();
+    const transaction = (this.toRecord(body.obj) ?? {}) as PaymobTransaction;
+
+    if (this.toStringValue(body.type).toUpperCase() !== 'TRANSACTION') {
+      return { message: 'Ignored', data: { received: true } };
+    }
+
+    this.assertPaymobHmac(
+      this.paymobHmacFields(transaction),
+      hmac,
+      configuration.hmacSecret,
+    );
+    await this.applyPaymobTransaction(transaction, body);
+
+    return {
+      message: 'Paymob webhook processed successfully',
+      data: { received: true },
+    };
+  }
+
+  /**
+   * The buyer's browser comes back from Paymob with the transaction as query
+   * params. The frontend forwards them here; the HMAC proves Paymob sent them,
+   * so the order is confirmed even if the server callback is late.
+   */
+  async confirmPaymobReturn(
+    userId: string,
+    query: Record<string, unknown>,
+  ): Promise<{
+    message: string;
+    data: { payment: ReturnType<typeof this.toPayment>; orderId: string };
+  }> {
+    const configuration = this.getRequiredPaymobConfig();
+    const q = (key: string) => this.toStringValue(query[key]);
+
+    this.assertPaymobHmac(
+      [
+        q('amount_cents'),
+        q('created_at'),
+        q('currency'),
+        q('error_occured'),
+        q('has_parent_transaction'),
+        q('id'),
+        q('integration_id'),
+        q('is_3d_secure'),
+        q('is_auth'),
+        q('is_capture'),
+        q('is_refunded'),
+        q('is_standalone_payment'),
+        q('is_voided'),
+        q('order'),
+        q('owner'),
+        q('pending'),
+        q('source_data.pan'),
+        q('source_data.sub_type'),
+        q('source_data.type'),
+        q('success'),
+      ],
+      this.optionalStringValue(query.hmac),
+      configuration.hmacSecret,
+    );
+
+    const transaction: PaymobTransaction = {
+      id: q('id'),
+      amount_cents: q('amount_cents'),
+      currency: q('currency'),
+      pending: q('pending'),
+      success: q('success'),
+      is_refunded: q('is_refunded'),
+      is_voided: q('is_voided'),
+      merchant_order_id: q('merchant_order_id'),
+      data: { message: q('data.message') },
+    };
+    const payment = await this.applyPaymobTransaction(transaction, query);
+
+    if (payment.userId !== userId) {
+      throw new NotFoundException('Payment not found.');
+    }
+
+    return {
+      message: 'Paymob payment status returned successfully',
+      data: { payment: this.toPayment(payment), orderId: payment.orderId },
+    };
+  }
+
+  /** Current Paymob payment for an owned order (updated by the callbacks). */
+  async getPaymobStatus(
+    userId: string,
+    orderId: string,
+  ): Promise<{
+    message: string;
+    data: { payment: ReturnType<typeof this.toPayment> };
+  }> {
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        orderId,
+        userId,
+        provider: PaymentProvider.PAYMOB,
+      },
+      select: paymentSelect,
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Paymob payment not found.');
+    }
+
+    return {
+      message: 'Paymob payment status returned successfully',
+      data: { payment: this.toPayment(payment) },
+    };
+  }
+
+  private async applyPaymobTransaction(
+    transaction: PaymobTransaction,
+    rawPayload: unknown,
+  ): Promise<PaymentRecord> {
+    const orderField = transaction.order;
+    const merchantRefNumber =
+      this.optionalStringValue(transaction.merchant_order_id) ??
+      (typeof orderField === 'object' && orderField !== null
+        ? this.optionalStringValue(orderField.merchant_order_id)
+        : undefined) ??
+      this.optionalStringValue(transaction.special_reference);
+
+    if (!merchantRefNumber) {
+      throw new BadRequestException('Paymob merchant reference is missing.');
+    }
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { merchantRefNumber },
+      select: paymentSelect,
+    });
+
+    if (!payment || payment.provider !== PaymentProvider.PAYMOB) {
+      throw new NotFoundException('Paymob payment not found.');
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: payment.orderId },
+      select: { totalAmount: true, currency: true },
+    });
+    const amountCents = Number(this.toStringValue(transaction.amount_cents));
+    const expectedCents = Math.round(
+      Number(order?.totalAmount.toString() ?? 0) * 100,
+    );
+    let nextStatus = this.mapPaymobStatus(transaction);
+
+    // Never mark paid on an amount or currency mismatch.
+    if (
+      nextStatus === PaymentStatus.PAID &&
+      (amountCents !== expectedCents ||
+        this.toStringValue(transaction.currency).toUpperCase() !==
+          order?.currency)
+    ) {
+      nextStatus = PaymentStatus.FAILED;
+    }
+
+    // Paid is final; ignore late duplicates that would move it backwards.
+    if (
+      payment.status === PaymentStatus.PAID &&
+      nextStatus !== PaymentStatus.REFUNDED
+    ) {
+      return payment;
+    }
+
+    const transactionId = this.optionalStringValue(transaction.id);
+    const providerResponse = this.toJson(rawPayload);
+    const failureReason =
+      nextStatus === PaymentStatus.FAILED
+        ? (this.optionalStringValue(transaction.data?.message) ??
+          'Payment was declined.')
+        : null;
+
+    const updatedPayment = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: nextStatus,
+          providerReferenceNumber:
+            transactionId ?? payment.providerReferenceNumber,
+          providerStatus: nextStatus,
+          providerResponse,
+          failureReason,
+          paidAt:
+            nextStatus === PaymentStatus.PAID
+              ? (payment.paidAt ?? new Date())
+              : payment.paidAt,
+        },
+        select: paymentSelect,
+      });
+
+      await this.upsertPaymentTransaction(tx, updated, providerResponse, {
+        transactionReference: transactionId
+          ? `PAYMOB-${transactionId}`
+          : payment.merchantRefNumber,
+        providerTransactionId: transactionId ?? null,
+      });
+
+      if (nextStatus === PaymentStatus.PAID) {
+        await tx.order.update({
+          where: { id: payment.orderId },
+          data: {
+            status: OrderStatus.PAID,
+            paymentStatus: PaymentStatus.PAID,
+            paidAt: updated.paidAt ?? new Date(),
+          },
+        });
+        await this.grantPaidDigitalAccess(tx, payment.orderId, payment.userId);
+      } else if (nextStatus === PaymentStatus.FAILED) {
+        await tx.order.update({
+          where: { id: payment.orderId },
+          data: { paymentStatus: PaymentStatus.FAILED },
+        });
+      } else if (nextStatus === PaymentStatus.REFUNDED) {
+        await tx.order.update({
+          where: { id: payment.orderId },
+          data: {
+            status: OrderStatus.REFUNDED,
+            paymentStatus: PaymentStatus.REFUNDED,
+          },
+        });
+      }
+
+      return updated;
+    });
+
+    if (nextStatus === PaymentStatus.PAID) {
+      await this.referralsService.rewardReferralAfterFirstPaidOrder(
+        payment.userId,
+      );
+    }
+
+    if (payment.status !== nextStatus) {
+      await this.sendPaymentStatusNotification(
+        payment.orderId,
+        nextStatus,
+        updatedPayment.failureReason,
+      );
+      this.logPaymentStatusAudit(updatedPayment, nextStatus);
+    }
+
+    return updatedPayment;
+  }
+
+  private mapPaymobStatus(transaction: PaymobTransaction): PaymentStatus {
+    const flag = (value: unknown) => this.toStringValue(value) === 'true';
+
+    if (flag(transaction.is_refunded)) {
+      return PaymentStatus.REFUNDED;
+    }
+
+    if (flag(transaction.is_voided)) {
+      return PaymentStatus.CANCELLED;
+    }
+
+    if (flag(transaction.pending)) {
+      return PaymentStatus.PENDING;
+    }
+
+    return flag(transaction.success)
+      ? PaymentStatus.PAID
+      : PaymentStatus.FAILED;
+  }
+
+  /** Field order defined by Paymob for the transaction callback HMAC. */
+  private paymobHmacFields(t: PaymobTransaction): string[] {
+    const order = t.order;
+    const orderId =
+      typeof order === 'object' && order !== null ? order.id : order;
+    return [
+      t.amount_cents,
+      t.created_at,
+      t.currency,
+      t.error_occured,
+      t.has_parent_transaction,
+      t.id,
+      t.integration_id,
+      t.is_3d_secure,
+      t.is_auth,
+      t.is_capture,
+      t.is_refunded,
+      t.is_standalone_payment,
+      t.is_voided,
+      orderId,
+      t.owner,
+      t.pending,
+      t.source_data?.pan,
+      t.source_data?.sub_type,
+      t.source_data?.type,
+      t.success,
+    ].map((value) => this.toStringValue(value));
+  }
+
+  private assertPaymobHmac(
+    fields: string[],
+    received: string | undefined,
+    secret: string,
+  ): void {
+    const expected = createHmac('sha512', secret)
+      .update(fields.join(''))
+      .digest('hex');
+    const a = Buffer.from(expected);
+    const b = Buffer.from((received ?? '').toLowerCase());
+
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new ForbiddenException('Invalid Paymob signature.');
+    }
+  }
+
+  private buildPaymobIntentionRequest(
+    order: OrderPaymentRecord,
+    merchantRefNumber: string,
+    integrationId: number,
+    configuration: RequiredPaymobConfig,
+  ) {
+    const amountCents = Math.round(
+      this.toNumberFromDecimal(order.totalAmount) * 100,
+    );
+    const [firstName, ...rest] = order.user.fullName.trim().split(/\s+/);
+
+    return {
+      amount: amountCents,
+      currency: order.currency,
+      payment_methods: [integrationId],
+      // One summary line so item totals always equal the order total
+      // (discounts and shipping are already inside totalAmount).
+      items: [
+        {
+          name: `Order ${order.orderNumber}`.slice(0, 50),
+          amount: amountCents,
+          description: order.items
+            .map((item) => item.titleAr || item.titleEn)
+            .join(' / ')
+            .slice(0, 255),
+          quantity: 1,
+        },
+      ],
+      billing_data: {
+        first_name: firstName || 'Customer',
+        last_name: rest.join(' ') || 'NA',
+        email: order.user.email,
+        phone_number: order.user.phoneNumber,
+        apartment: 'NA',
+        floor: 'NA',
+        street: 'NA',
+        building: 'NA',
+        city: 'NA',
+        state: 'NA',
+        country: 'EG',
+      },
+      special_reference: merchantRefNumber,
+      notification_url: configuration.notificationUrl,
+      redirection_url: configuration.redirectionUrl,
+      extras: { orderId: order.id, orderNumber: order.orderNumber },
+    };
+  }
+
+  private async postPaymob<T>(
+    path: string,
+    body: unknown,
+    configuration: RequiredPaymobConfig,
+  ): Promise<T> {
+    let response: Response;
+
+    try {
+      response = await fetch(
+        `${configuration.baseUrl.replace(/\/$/, '')}${path}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Token ${configuration.secretKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        },
+      );
+    } catch {
+      throw new BadGatewayException('Paymob request failed.');
+    }
+
+    const text = await response.text();
+    let parsed: unknown;
+
+    try {
+      parsed = text ? JSON.parse(text) : {};
+    } catch {
+      parsed = { raw: text };
+    }
+
+    if (!response.ok) {
+      throw new BadGatewayException(
+        `Paymob request failed with status ${response.status}.`,
+      );
+    }
+
+    return parsed as T;
+  }
+
+  private getPaymobIntegrationId(channel: PaymobChannel): number {
+    const raw = {
+      [PaymobChannel.CARD]: this.paymobConfiguration.integrationIdCard,
+      [PaymobChannel.WALLET]: this.paymobConfiguration.integrationIdWallet,
+      [PaymobChannel.APPLE_PAY]: this.paymobConfiguration.integrationIdApplePay,
+    }[channel];
+    const id = Number(raw);
+
+    if (!raw || !Number.isInteger(id)) {
+      throw new ServiceUnavailableException(
+        `Paymob integration id for ${channel} is not configured.`,
+      );
+    }
+
+    return id;
+  }
+
+  private getRequiredPaymobConfig(): RequiredPaymobConfig {
+    const configuration = {
+      baseUrl: this.paymobConfiguration.baseUrl,
+      checkoutUrl: this.paymobConfiguration.checkoutUrl,
+      secretKey: this.paymobConfiguration.secretKey,
+      publicKey: this.paymobConfiguration.publicKey,
+      hmacSecret: this.paymobConfiguration.hmacSecret,
+      notificationUrl: this.paymobConfiguration.notificationUrl,
+      redirectionUrl: this.paymobConfiguration.redirectionUrl,
+    };
+    const missingKeys = Object.entries(configuration)
+      .filter(([, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingKeys.length > 0) {
+      throw new ServiceUnavailableException(
+        `Paymob configuration is missing: ${missingKeys.join(', ')}.`,
+      );
+    }
+
+    return configuration as RequiredPaymobConfig;
+  }
+
   private async findOwnedPendingOrderOrThrow(
     userId: string,
     orderId: string,
@@ -902,8 +1509,23 @@ export class PaymentsService {
   }
 
   private buildPaypalCreateOrderRequest(order: OrderPaymentRecord) {
+    const { returnUrl, cancelUrl } = this.paypalConfiguration;
+    const withOrder = (url: string) =>
+      `${url}${url.includes('?') ? '&' : '?'}orderId=${order.id}&provider=paypal`;
+
     return {
       intent: 'CAPTURE',
+      // Where PayPal sends the buyer back after approving or cancelling.
+      ...(returnUrl
+        ? {
+            application_context: {
+              return_url: withOrder(returnUrl),
+              cancel_url: withOrder(cancelUrl || returnUrl),
+              user_action: 'PAY_NOW',
+              shipping_preference: 'NO_SHIPPING',
+            },
+          }
+        : {}),
       purchase_units: [
         {
           reference_id: order.orderNumber,

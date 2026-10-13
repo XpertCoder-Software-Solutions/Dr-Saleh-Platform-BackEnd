@@ -26,6 +26,7 @@ import { validateEnv } from './config/env.validation';
 import fawryConfig from './config/fawry.config';
 import jwtConfig, { JwtConfig } from './config/jwt.config';
 import paypalConfig from './config/paypal.config';
+import paymobConfig from './config/paymob.config';
 import referralConfig from './config/referral.config';
 import redisConfig, { RedisConfig } from './config/redis.config';
 import s3Config from './config/s3.config';
@@ -76,6 +77,7 @@ function toOptionalStringOrNumber(value: unknown): string | number | undefined {
         cloudFrontConfig,
         fawryConfig,
         paypalConfig,
+        paymobConfig,
         referralConfig,
       ],
       validate: validateEnv,

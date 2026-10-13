@@ -5,6 +5,8 @@ const paypalConfig = registerAs('paypal', () => ({
   clientSecret: process.env.PAYPAL_CLIENT_SECRET,
   baseUrl: process.env.PAYPAL_BASE_URL,
   webhookId: process.env.PAYPAL_WEBHOOK_ID,
+  returnUrl: process.env.PAYPAL_RETURN_URL,
+  cancelUrl: process.env.PAYPAL_CANCEL_URL,
 }));
 
 export type PaypalConfig = ConfigType<typeof paypalConfig>;
