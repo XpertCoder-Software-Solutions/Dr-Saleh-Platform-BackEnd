@@ -710,7 +710,9 @@ export class CoursesService {
     return {
       message: 'Courses returned successfully',
       data: {
-        courses: courses.map((course) => this.toCourseSummary(course)),
+        courses: await this.withCourseStats(
+          courses.map((course) => this.toCourseSummary(course)),
+        ),
         pagination: buildPaginationMeta(page, limit, total),
       },
     };
