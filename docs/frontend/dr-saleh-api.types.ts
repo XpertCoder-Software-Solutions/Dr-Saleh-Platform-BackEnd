@@ -40,6 +40,8 @@ export interface SignedUrl {
   expiresAt: DateTimeString;
 }
 
+export type Gender = 'Male' | 'Female';
+
 export interface User {
   id: UUID;
   fullName: string;
@@ -48,6 +50,7 @@ export interface User {
   profileImage?: string | null;
   role?: 'User' | 'Admin' | string;
   referralCode?: string | null;
+  gender?: Gender | null;
   isEmailVerified: boolean;
   isPhoneVerified?: boolean;
   isActive?: boolean;
@@ -64,6 +67,8 @@ export interface AuthUser {
   phone?: string;
   phoneNumber?: string;
   role: 'User' | 'Admin' | string;
+  gender?: Gender | null;
+  profileImage?: string | null;
 }
 
 export interface LoginData {

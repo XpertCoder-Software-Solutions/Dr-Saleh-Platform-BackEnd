@@ -38,6 +38,13 @@ export class CoursesController {
     return this.coursesService.findFeaturedCourses();
   }
 
+  @Get('categories')
+  @ApiOperation({ summary: 'List active course categories that have courses.' })
+  @ApiOkResponse({ description: 'Course categories returned.' })
+  findCategories() {
+    return this.coursesService.findPublicCategories();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get one active course by id.' })
   @ApiOkResponse({ description: 'Course returned.' })
