@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, RoleName } from '@prisma/client';
+import { Gender, Prisma, RoleName } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import type { StringValue } from 'ms';
 import { AuditLogService } from '../audit-logs/audit-log.service';
@@ -50,6 +50,7 @@ const registeredUserSelect = {
   phoneNumber: true,
   referralCode: true,
   isEmailVerified: true,
+  gender: true,
 } satisfies Prisma.UserSelect;
 
 const authUserSelect = {
@@ -57,6 +58,8 @@ const authUserSelect = {
   fullName: true,
   email: true,
   phoneNumber: true,
+  gender: true,
+  profileImage: true,
   isActive: true,
   isEmailVerified: true,
   emailVerifiedAt: true,
@@ -101,6 +104,8 @@ export type LoginResult = {
       email: string;
       phone: string;
       role: RoleName;
+      gender: Gender | null;
+      profileImage: string | null;
     };
   };
 };
@@ -199,6 +204,7 @@ export class AuthService {
       sentAt: new Date(),
       referralCode: await this.generateUniqueReferralCode(),
       referrer,
+      gender: registerDto.gender,
     });
 
     try {
@@ -752,6 +758,7 @@ export class AuthService {
     sentAt,
     referralCode,
     referrer,
+    gender,
   }: {
     roleId: string;
     firstName: string;
@@ -765,6 +772,7 @@ export class AuthService {
     sentAt: Date;
     referralCode: string;
     referrer: { id: string; referralCode: string } | null;
+    gender?: Gender;
   }): Promise<RegisteredUser> {
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -779,6 +787,7 @@ export class AuthService {
             passwordHash,
             referralCode,
             referredByUserId: referrer?.id,
+            gender,
             isEmailVerified: false,
             isPhoneVerified: false,
             isActive: true,
@@ -907,6 +916,8 @@ export class AuthService {
       email: user.email,
       phone: user.phoneNumber,
       role: user.role.name,
+      gender: user.gender ?? null,
+      profileImage: user.profileImage ?? null,
     };
   }
 

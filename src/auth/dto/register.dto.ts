@@ -1,7 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import { Gender } from '@prisma/client';
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -64,4 +66,13 @@ export class RegisterDto {
   @MaxLength(64)
   @Matches(/^[A-Z0-9_-]+$/)
   referralCode?: string;
+
+  @ApiPropertyOptional({
+    enum: Gender,
+    example: Gender.Female,
+    description: 'Optional gender. Used to address the user with gendered copy.',
+  })
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
 }
