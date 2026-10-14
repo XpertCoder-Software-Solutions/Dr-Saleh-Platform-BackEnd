@@ -58,3 +58,8 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
 dump.rdb
+
+# Uploaded files are runtime data; only the folder placeholders are tracked.
+uploads/**/*
+!uploads/**/
+!uploads/**/.gitkeep
