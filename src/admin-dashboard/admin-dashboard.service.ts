@@ -5,6 +5,13 @@ import { DashboardRevenuePeriod } from './dto/dashboard-query.dto';
 
 type DecimalLike = Prisma.Decimal | number | string | null | undefined;
 
+const REVENUE_TRUNC_UNIT: Record<DashboardRevenuePeriod, string> = {
+  [DashboardRevenuePeriod.Daily]: 'day',
+  [DashboardRevenuePeriod.Weekly]: 'week',
+  [DashboardRevenuePeriod.Monthly]: 'month',
+  [DashboardRevenuePeriod.Yearly]: 'year',
+};
+
 type RevenueRow = {
   date: string;
   revenue: string | number | Prisma.Decimal | null;
@@ -92,16 +99,19 @@ export class AdminDashboardService {
     period: DashboardRevenuePeriod = DashboardRevenuePeriod.Daily,
     currency: Currency = Currency.EGP,
   ) {
+    // date_trunc needs a unit literal ('day', not 'daily'), and the same
+    // expression in SELECT and GROUP BY, so the unit is inlined from a whitelist.
+    const unit = Prisma.raw(`'${REVENUE_TRUNC_UNIT[period]}'`);
     const rows = await this.prisma.$queryRaw<RevenueRow[]>(Prisma.sql`
       SELECT
-        to_char(date_trunc(${period}, "paidAt"), 'YYYY-MM-DD') AS "date",
+        to_char(date_trunc(${unit}, "paidAt"), 'YYYY-MM-DD') AS "date",
         COALESCE(SUM("totalAmount"), 0)::text AS "revenue"
       FROM "orders"
-      WHERE "paymentStatus" = ${PaymentStatus.PAID}
+      WHERE "paymentStatus" = ${PaymentStatus.PAID}::"PaymentStatus"
         AND "paidAt" IS NOT NULL
         AND "currency" = ${currency}
-      GROUP BY date_trunc(${period}, "paidAt")
-      ORDER BY date_trunc(${period}, "paidAt") ASC
+      GROUP BY 1
+      ORDER BY 1 ASC
     `);
 
     return {
