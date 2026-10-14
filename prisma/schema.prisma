@@ -631,6 +631,11 @@ model Order {
   hasPhysicalItems    Boolean              @default(false)
   paidAt              DateTime?
   shippingCost        Decimal              @default(0) @db.Decimal(12, 2)
+  shippingStatus      ShippingStatus?
+  trackingNumber      String?
+  shippingCarrier     String?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
   couponUsage         CouponUsage?
   items               OrderItem[]
   coupon              Coupon?              @relation(fields: [couponId], references: [id])
@@ -915,18 +920,27 @@ model ConsultationRequest {
   id                String               @id @default(uuid()) @db.Uuid
   categoryId        String               @db.Uuid
   fullName          String
-  age               Int
-  gender            ConsultationGender
+  age               Int?
+  gender            ConsultationGender?
   country           String
   phone             String
   whatsApp          String
-  createdAt         DateTime             @default(now())
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime?                 @updatedAt
   email             String
   consultationTopic String
   notes             String?
-  category          ConsultationCategory @relation(fields: [categoryId], references: [id])
+  childAge          String?
+  relation          String?
+  sessionType       String?
+  preferredTime     String?
+  status            ConsultationRequestStatus @default(NEW)
+  scheduledAt       DateTime?
+  adminNotes        String?
+  category          ConsultationCategory      @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId])
+  @@index([status])
   @@index([phone])
   @@index([whatsApp])
   @@index([email])
@@ -1022,6 +1036,12 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum ShippingStatus {
+  PREPARING
+  SHIPPED
+  DELIVERED
+}
+
 enum PaymentStatus {
   PENDING
   PAID
@@ -1033,11 +1053,13 @@ enum PaymentStatus {
 enum PaymentProvider {
   FAWRY
   PAYPAL
+  PAYMOB
 }
 
 enum PaymentMethod {
   FAWRY_REFERENCE
   PAYPAL_CHECKOUT
+  PAYMOB_CHECKOUT
 }
 
 enum CouponType {
@@ -1083,6 +1105,14 @@ enum LessonType {
 enum ConsultationGender {
   Male
   Female
+}
+
+enum ConsultationRequestStatus {
+  NEW
+  CONTACTED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
 enum Gender {

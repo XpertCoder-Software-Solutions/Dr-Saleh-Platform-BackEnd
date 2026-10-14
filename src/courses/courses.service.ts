@@ -15,9 +15,11 @@ import {
   buildPaginationMeta,
   getPaginationParams,
 } from '../common/utils/pagination';
+import { randomBytes } from 'node:crypto';
 import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AdminReviewQueryDto } from './dto/admin-review-query.dto';
 import { AdminCourseQueryDto, CourseQueryDto } from './dto/course-query.dto';
 import { CreateCourseCategoryDto } from './dto/create-course-category.dto';
 import { CreateCourseReviewDto } from './dto/create-course-review.dto';
@@ -173,6 +175,25 @@ const courseReviewSelect = {
       profileImage: true,
     },
   },
+} satisfies Prisma.CourseReviewSelect;
+
+const adminCourseReviewSelect = {
+  ...courseReviewSelect,
+  user: {
+    select: {
+      id: true,
+      fullName: true,
+      profileImage: true,
+      email: true,
+      phoneNumber: true,
+    },
+  },
+  course: { select: { id: true, titleAr: true, titleEn: true } },
+} satisfies Prisma.CourseReviewSelect;
+
+const featuredReviewSelect = {
+  ...courseReviewSelect,
+  course: { select: { id: true, titleAr: true, titleEn: true } },
 } satisfies Prisma.CourseReviewSelect;
 
 const certificateSelect = {
@@ -710,7 +731,9 @@ export class CoursesService {
     return {
       message: 'Courses returned successfully',
       data: {
-        courses: courses.map((course) => this.toCourseSummary(course)),
+        courses: await this.withCourseStats(
+          courses.map((course) => this.toCourseSummary(course)),
+        ),
         pagination: buildPaginationMeta(page, limit, total),
       },
     };
@@ -1013,6 +1036,14 @@ export class CoursesService {
         normalizedProgress.lastWatchedAt,
       );
 
+      if (courseCompletion.courseProgress.isCompleted) {
+        await this.issueCertificateIfEnabled(
+          tx,
+          userId,
+          lesson.section.courseId,
+        );
+      }
+
       return {
         progress,
         courseProgress: courseCompletion.courseProgress,
@@ -1103,6 +1134,74 @@ export class CoursesService {
     };
   }
 
+  async adminFindReviews(query: AdminReviewQueryDto) {
+    const { page, limit, skip } = getPaginationParams(query);
+    const where: Prisma.CourseReviewWhereInput = {
+      courseId: query.courseId,
+      isActive: query.isActive,
+      rating: query.rating,
+    };
+
+    const [total, reviews] = await this.prisma.$transaction([
+      this.prisma.courseReview.count({ where }),
+      this.prisma.courseReview.findMany({
+        where,
+        select: adminCourseReviewSelect,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      message: 'Course reviews returned successfully',
+      data: {
+        reviews,
+        pagination: buildPaginationMeta(page, limit, total),
+      },
+    };
+  }
+
+  async adminSetReviewActive(reviewId: string, isActive: boolean) {
+    const existing = await this.prisma.courseReview.findUnique({
+      where: { id: reviewId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Review not found.');
+    }
+
+    const review = await this.prisma.courseReview.update({
+      where: { id: reviewId },
+      data: { isActive },
+      select: adminCourseReviewSelect,
+    });
+
+    return {
+      message: isActive ? 'Review is visible again' : 'Review hidden',
+      data: { review },
+    };
+  }
+
+  async findFeaturedReviews(limit = 6) {
+    const reviews = await this.prisma.courseReview.findMany({
+      where: {
+        isActive: true,
+        rating: { gte: 4 },
+        comment: { not: null },
+        course: { isActive: true },
+      },
+      select: featuredReviewSelect,
+      orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+    });
+
+    return {
+      message: 'Featured reviews returned successfully',
+      data: { reviews },
+    };
+  }
+
   async findMyCertificates(userId: string) {
     const certificates = await this.prisma.certificate.findMany({
       where: { userId },
@@ -1141,7 +1240,17 @@ export class CoursesService {
       throw new NotFoundException('Certificate not found.');
     }
 
-    return this.toCertificate(certificate);
+    // Public endpoint: show who holds the certificate, never their email or ids.
+    return {
+      certificateNumber: certificate.certificateNumber,
+      issuedAt: certificate.issuedAt,
+      holderName: certificate.user.fullName,
+      course: {
+        id: certificate.course.id,
+        titleAr: certificate.course.titleAr,
+        titleEn: certificate.course.titleEn,
+      },
+    };
   }
 
   private async findCategoryOrThrow(id: string): Promise<CourseCategoryRecord> {
@@ -1354,6 +1463,38 @@ export class CoursesService {
       courseProgress,
       wasAlreadyCompleted: userCourse.completedAt !== null,
     };
+  }
+
+  /**
+   * Issues the course certificate the first time a student completes a course
+   * that has certificates enabled. Safe to call repeatedly.
+   */
+  private async issueCertificateIfEnabled(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    courseId: string,
+  ): Promise<void> {
+    const course = await tx.course.findUnique({
+      where: { id: courseId },
+      select: { certificateEnabled: true },
+    });
+
+    if (!course?.certificateEnabled) {
+      return;
+    }
+
+    const year = new Date().getFullYear();
+    const suffix = randomBytes(4).toString('hex').toUpperCase();
+
+    await tx.certificate.upsert({
+      where: { userId_courseId: { userId, courseId } },
+      update: {},
+      create: {
+        userId,
+        courseId,
+        certificateNumber: `DS-${year}-${suffix}`,
+      },
+    });
   }
 
   private async sendCourseCompletedNotification(
@@ -1610,6 +1751,11 @@ export class CoursesService {
         currentLesson.lessonType !== LessonType.VIDEO
       ) {
         lessonData.pdfKey = null;
+      }
+
+      // A video lesson can carry a PDF attachment (lesson summary).
+      if (updateDto.pdfKey !== undefined) {
+        lessonData.pdfKey = updateDto.pdfKey;
       }
 
       return lessonData;

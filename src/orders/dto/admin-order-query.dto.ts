@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { OrderStatus, PaymentStatus, ShippingStatus } from '@prisma/client';
+import { Transform } from 'class-transformer';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
+import { trimOptionalString } from '../../common/utils/dto-transformers';
 import { OrderQueryDto } from './order-query.dto';
 
 export class AdminOrderQueryDto extends OrderQueryDto {
@@ -28,4 +36,19 @@ export class AdminOrderQueryDto extends OrderQueryDto {
   @IsOptional()
   @IsUUID()
   userId?: string;
+
+  @ApiPropertyOptional({
+    example: 'DS-2026-000003',
+    description: 'Order number, customer name, email or phone.',
+  })
+  @Transform(trimOptionalString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @ApiPropertyOptional({ enum: ShippingStatus, enumName: 'ShippingStatus' })
+  @IsOptional()
+  @IsEnum(ShippingStatus)
+  shippingStatus?: ShippingStatus;
 }

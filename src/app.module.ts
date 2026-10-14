@@ -10,6 +10,7 @@ import { join } from 'path';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import appConfig, { AppConfig } from './config/app.config';
 import { AdminManagementModule } from './admin-management/admin-management.module';
+import { AdminStudentsModule } from './admin-students/admin-students.module';
 import { ArticlesModule } from './articles/articles.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
@@ -26,6 +27,7 @@ import { validateEnv } from './config/env.validation';
 import fawryConfig from './config/fawry.config';
 import jwtConfig, { JwtConfig } from './config/jwt.config';
 import paypalConfig from './config/paypal.config';
+import paymobConfig from './config/paymob.config';
 import referralConfig from './config/referral.config';
 import redisConfig, { RedisConfig } from './config/redis.config';
 import s3Config from './config/s3.config';
@@ -76,6 +78,7 @@ function toOptionalStringOrNumber(value: unknown): string | number | undefined {
         cloudFrontConfig,
         fawryConfig,
         paypalConfig,
+        paymobConfig,
         referralConfig,
       ],
       validate: validateEnv,
@@ -192,6 +195,7 @@ function toOptionalStringOrNumber(value: unknown): string | number | undefined {
     PrismaModule,
     AdminDashboardModule,
     AdminManagementModule,
+    AdminStudentsModule,
     AuthModule,
     AuditLogsModule,
     ArticlesModule,

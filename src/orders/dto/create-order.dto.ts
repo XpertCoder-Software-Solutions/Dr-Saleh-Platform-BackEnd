@@ -1,5 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { Currency } from '@prisma/client';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateOrderDto {
   @ApiPropertyOptional({
@@ -28,4 +35,14 @@ export class CreateOrderDto {
   @IsOptional()
   @IsUUID()
   couponId?: string;
+
+  @ApiPropertyOptional({
+    enum: Currency,
+    default: Currency.EGP,
+    description:
+      'Order currency. USD is for PayPal and digital-only carts (shipping is priced in EGP).',
+  })
+  @IsOptional()
+  @IsEnum(Currency)
+  currency?: Currency;
 }

@@ -96,3 +96,15 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+
+## Demo deployment (Railway or any Docker host)
+
+`scripts/start.sh` is the container entrypoint. With `DEMO_SEED=true` a brand-new
+deployment fills itself with demo content: when the database has no tables it
+restores `demo/drsaleh.dump` (all Prisma migrations already recorded as applied),
+and it unpacks `demo/uploads.tgz` into `uploads/` once. Without `DEMO_SEED` the
+container just starts the API. Mount a persistent volume at `/app/uploads`.
+
+`NODE_ENV=production` requires the CloudFront signing keys for lesson videos; a
+preview without them can run with `NODE_ENV=development` and `SWAGGER_ENABLED=false`.

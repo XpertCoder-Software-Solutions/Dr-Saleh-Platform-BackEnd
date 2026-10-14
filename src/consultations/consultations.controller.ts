@@ -1,10 +1,22 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiOkResponse,
   ApiCreatedResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ConsultationsService } from './consultations.service';
 import { CreateConsultationRequestDto } from './dto/create-consultation-request.dto';
 
@@ -36,5 +48,17 @@ export class ConsultationsController {
     return this.consultationsService.submitRequest(
       createConsultationRequestDto,
     );
+  }
+
+  @Get('mine')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary:
+      "List the signed-in user's consultation requests (matched by email).",
+  })
+  @ApiOkResponse({ description: 'Consultation requests returned.' })
+  findMine(@CurrentUser('email') email: string) {
+    return this.consultationsService.findMyRequests(email);
   }
 }

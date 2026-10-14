@@ -21,12 +21,17 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# psql/pg_restore for the optional demo seed in scripts/start.sh
+RUN apk add --no-cache postgresql-client
+
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY package*.json ./
+COPY demo ./demo
+COPY scripts/start.sh ./scripts/start.sh
 
 EXPOSE 3000
 
-CMD ["node", "dist/src/main.js"]
+CMD ["sh", "scripts/start.sh"]

@@ -6,6 +6,12 @@ import { CoursesService } from './courses.service';
 
 type MockPrismaClient = {
   $transaction: jest.Mock;
+  certificate: {
+    upsert: jest.Mock;
+  };
+  course: {
+    findUnique: jest.Mock;
+  };
   lesson: {
     count: jest.Mock;
     findFirst: jest.Mock;
@@ -172,6 +178,13 @@ describe('CoursesService progress', () => {
       isCompleted: true,
       totalLessons: 2,
     });
+    const certificateArgs = getFirstMockArg<{
+      create: { certificateNumber: string; courseId: string; userId: string };
+    }>(prisma.certificate.upsert);
+    expect(certificateArgs.create).toMatchObject({ courseId, userId });
+    expect(certificateArgs.create.certificateNumber).toMatch(
+      /^DS-\d{4}-[0-9A-F]{8}$/,
+    );
     expect(notificationsService.sendCourseCompleted).toHaveBeenCalledWith({
       courseTitleAr: 'دورة اختبار',
       courseTitleEn: 'Test Course',
@@ -234,6 +247,12 @@ describe('CoursesService progress', () => {
 function createPrismaMock(): MockPrismaClient {
   const prisma: MockPrismaClient = {
     $transaction: jest.fn(),
+    certificate: {
+      upsert: jest.fn(),
+    },
+    course: {
+      findUnique: jest.fn().mockResolvedValue({ certificateEnabled: true }),
+    },
     lesson: {
       count: jest.fn(),
       findFirst: jest.fn(),

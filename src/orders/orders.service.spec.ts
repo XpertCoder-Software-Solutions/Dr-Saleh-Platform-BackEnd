@@ -7,6 +7,7 @@ import {
   OrderStatus,
   PaymentStatus,
   Prisma,
+  ShippingStatus,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -162,6 +163,46 @@ describe('OrdersService Phase 0 launch safety', () => {
       }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('ships only paid orders with physical items and stamps the dates once', async () => {
+    prisma.order.findUnique.mockResolvedValueOnce({
+      id: orderId,
+      status: OrderStatus.PENDING,
+      hasPhysicalItems: true,
+      shippedAt: null,
+      deliveredAt: null,
+    });
+    await expect(
+      service.adminUpdateShipping(orderId, {
+        shippingStatus: ShippingStatus.SHIPPED,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    const shippedAt = new Date('2026-10-10T10:00:00.000Z');
+    prisma.order.findUnique.mockResolvedValueOnce({
+      id: orderId,
+      status: OrderStatus.PAID,
+      hasPhysicalItems: true,
+      shippedAt,
+      deliveredAt: null,
+    });
+    prisma.order.update.mockResolvedValue(createOrderRecord());
+
+    await service.adminUpdateShipping(orderId, {
+      shippingStatus: ShippingStatus.DELIVERED,
+      trackingNumber: 'BOSTA-1',
+    });
+
+    const args = (
+      prisma.order.update.mock.calls[0] as [{ data: Record<string, unknown> }]
+    )[0];
+    expect(args.data).toMatchObject({
+      shippingStatus: ShippingStatus.DELIVERED,
+      trackingNumber: 'BOSTA-1',
+    });
+    expect(args.data).not.toHaveProperty('shippedAt');
+    expect(args.data.deliveredAt).toBeInstanceOf(Date);
   });
 
   it('releases reserved stock when admin cancels a pending unpaid order', async () => {

@@ -4,8 +4,10 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Body,
   Param,
   ParseUUIDPipe,
+  Patch,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -22,6 +24,7 @@ import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ConsultationsService } from './consultations.service';
 import { AdminConsultationQueryDto } from './dto/admin-consultation-query.dto';
+import { UpdateConsultationRequestDto } from './dto/update-consultation-request.dto';
 
 @ApiTags('Admin Consultations')
 @ApiBearerAuth()
@@ -51,6 +54,23 @@ export class AdminConsultationsController {
   @ApiNotFoundResponse({ description: 'Consultation request not found.' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.consultationsService.adminFindRequest(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Admin: update follow-up on a consultation request.',
+    description:
+      'Set status (NEW, CONTACTED, SCHEDULED, COMPLETED, CANCELLED), the agreed session date, and internal notes.',
+  })
+  @ApiOkResponse({ description: 'Consultation request updated.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiForbiddenResponse({ description: 'Admin access is required.' })
+  @ApiNotFoundResponse({ description: 'Consultation request not found.' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateDto: UpdateConsultationRequestDto,
+  ) {
+    return this.consultationsService.adminUpdateRequest(id, updateDto);
   }
 
   @Delete(':id')

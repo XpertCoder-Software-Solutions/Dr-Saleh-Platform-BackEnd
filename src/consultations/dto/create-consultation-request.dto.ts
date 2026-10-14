@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 import {
@@ -28,16 +29,21 @@ export class CreateConsultationRequestDto {
   @IsNotEmpty()
   fullName: string;
 
-  @ApiProperty({ example: 30 })
+  @ApiPropertyOptional({ example: 30 })
   @Transform(toOptionalNumber)
+  @IsOptional()
   @IsInt()
   @Min(1)
-  age: number;
+  age?: number;
 
-  @ApiProperty({ enum: ConsultationGender, example: ConsultationGender.Male })
+  @ApiPropertyOptional({
+    enum: ConsultationGender,
+    example: ConsultationGender.Male,
+  })
   @Transform(toConsultationGender)
+  @IsOptional()
   @IsEnum(ConsultationGender)
-  gender: ConsultationGender;
+  gender?: ConsultationGender;
 
   @ApiProperty({ example: 'Saudi Arabia' })
   @Transform(trimString)
@@ -74,4 +80,38 @@ export class CreateConsultationRequestDto {
   @IsString()
   @IsNotEmpty()
   notes?: string;
+
+  @ApiPropertyOptional({ example: '7-10', description: 'Child age range.' })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  childAge?: string;
+
+  @ApiPropertyOptional({ example: 'أم', description: 'Relation to the child.' })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  relation?: string;
+
+  @ApiPropertyOptional({
+    example: 'video',
+    description: 'Preferred session type.',
+  })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  sessionType?: string;
+
+  @ApiPropertyOptional({
+    example: 'evening',
+    description: 'Best time to call.',
+  })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  preferredTime?: string;
 }
