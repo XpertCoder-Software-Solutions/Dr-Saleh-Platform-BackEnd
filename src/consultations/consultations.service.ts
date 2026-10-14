@@ -91,18 +91,14 @@ export class ConsultationsService {
       where: {
         email: { equals: this.normalizeEmail(email), mode: 'insensitive' },
       },
-      select: consultationRequestSelect,
+      select: { ...consultationRequestSelect, adminNotes: false },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
 
     return {
       message: 'Consultation requests returned successfully',
-      data: {
-        items: requests.map(
-          ({ adminNotes: _adminNotes, ...request }) => request,
-        ),
-      },
+      data: { items: requests },
     };
   }
 
