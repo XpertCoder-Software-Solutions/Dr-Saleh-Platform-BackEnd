@@ -12,6 +12,7 @@ import {
   OrderStatus,
   PaymentStatus,
   Prisma,
+  ShippingStatus,
 } from '@prisma/client';
 import {
   buildPaginationMeta,
@@ -22,6 +23,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AdminOrderQueryDto } from './dto/admin-order-query.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
+import { UpdateOrderShippingDto } from './dto/update-order-shipping.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 const cartItemSelect = {
@@ -154,6 +156,11 @@ const orderSelect = {
   hasPhysicalItems: true,
   notes: true,
   paidAt: true,
+  shippingStatus: true,
+  trackingNumber: true,
+  shippingCarrier: true,
+  shippedAt: true,
+  deliveredAt: true,
   createdAt: true,
   updatedAt: true,
   user: {
@@ -237,6 +244,11 @@ type OrderResponse = {
   hasPhysicalItems: boolean;
   notes: string | null;
   paidAt: Date | null;
+  shippingStatus: ShippingStatus | null;
+  trackingNumber: string | null;
+  shippingCarrier: string | null;
+  shippedAt: Date | null;
+  deliveredAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   user?: {
@@ -462,6 +474,25 @@ export class OrdersService {
       ...(query.status ? { status: query.status } : {}),
       ...(query.paymentStatus ? { paymentStatus: query.paymentStatus } : {}),
       ...(query.userId ? { userId: query.userId } : {}),
+      ...(query.shippingStatus ? { shippingStatus: query.shippingStatus } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { orderNumber: { contains: query.search, mode: 'insensitive' } },
+              {
+                user: {
+                  fullName: { contains: query.search, mode: 'insensitive' },
+                },
+              },
+              {
+                user: {
+                  email: { contains: query.search, mode: 'insensitive' },
+                },
+              },
+              { user: { phoneNumber: { contains: query.search } } },
+            ],
+          }
+        : {}),
     };
 
     const [total, orders] = await this.prisma.$transaction([
@@ -501,6 +532,67 @@ export class OrdersService {
       data: {
         order: this.toOrder(order, true),
       },
+    };
+  }
+
+  /** Shipping progress for paid orders with physical items. Dates are set when the status first reaches them. */
+  async adminUpdateShipping(
+    orderId: string,
+    dto: UpdateOrderShippingDto,
+  ): Promise<{ message: string; data: { order: OrderResponse } }> {
+    if (
+      dto.shippingStatus === undefined &&
+      dto.trackingNumber === undefined &&
+      dto.shippingCarrier === undefined
+    ) {
+      throw new BadRequestException('Provide at least one shipping field.');
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        status: true,
+        hasPhysicalItems: true,
+        shippedAt: true,
+        deliveredAt: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found.');
+    }
+
+    if (!order.hasPhysicalItems) {
+      throw new ConflictException('This order has nothing to ship.');
+    }
+
+    if (order.status !== OrderStatus.PAID) {
+      throw new ConflictException('Only paid orders can be shipped.');
+    }
+
+    const now = new Date();
+    const shipped =
+      dto.shippingStatus === ShippingStatus.SHIPPED ||
+      dto.shippingStatus === ShippingStatus.DELIVERED;
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        shippingStatus: dto.shippingStatus,
+        trackingNumber: dto.trackingNumber,
+        shippingCarrier: dto.shippingCarrier,
+        ...(shipped && !order.shippedAt ? { shippedAt: now } : {}),
+        ...(dto.shippingStatus === ShippingStatus.DELIVERED &&
+        !order.deliveredAt
+          ? { deliveredAt: now }
+          : {}),
+      },
+      select: orderSelect,
+    });
+
+    return {
+      message: 'Order shipping updated successfully',
+      data: { order: this.toOrder(updated, true) },
     };
   }
 
@@ -1222,6 +1314,11 @@ export class OrdersService {
       hasPhysicalItems: order.hasPhysicalItems,
       notes: order.notes,
       paidAt: order.paidAt,
+      shippingStatus: order.shippingStatus,
+      trackingNumber: order.trackingNumber,
+      shippingCarrier: order.shippingCarrier,
+      shippedAt: order.shippedAt,
+      deliveredAt: order.deliveredAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       user: includeUser ? order.user : undefined,

@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { OrderItemType, OrderStatus, PaymentStatus } from '@prisma/client';
+import {
+  OrderItemType,
+  OrderStatus,
+  PaymentStatus,
+  ShippingStatus,
+} from '@prisma/client';
 
 export class OrderItemResponseDto {
   @ApiProperty({ example: '5687d090-c3db-4e2f-9645-8fd715f810cf' })
@@ -162,6 +167,21 @@ export class OrderResponseDto {
 
   @ApiProperty({ example: '2026-06-08T12:00:00.000Z', nullable: true })
   paidAt: Date | null;
+
+  @ApiPropertyOptional({ enum: ShippingStatus, nullable: true })
+  shippingStatus: ShippingStatus | null;
+
+  @ApiPropertyOptional({ example: 'BOSTA-88213', nullable: true })
+  trackingNumber: string | null;
+
+  @ApiPropertyOptional({ example: 'Bosta', nullable: true })
+  shippingCarrier: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  shippedAt: Date | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  deliveredAt: Date | null;
 
   @ApiProperty({ example: '2026-06-08T12:00:00.000Z' })
   createdAt: Date;

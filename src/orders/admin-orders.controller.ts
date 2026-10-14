@@ -30,6 +30,7 @@ import {
   OrderApiResponseDto,
   OrderListApiResponseDto,
 } from './dto/order-response.dto';
+import { UpdateOrderShippingDto } from './dto/update-order-shipping.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrdersService } from './orders.service';
 
@@ -68,6 +69,24 @@ export class AdminOrdersController {
   @ApiNotFoundResponse({ description: 'Order not found.' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.adminFindOrder(id);
+  }
+
+  @Patch(':id/shipping')
+  @AuditAction({
+    action: AuditActions.OrderStatusUpdated,
+    entityType: AuditEntityTypes.Order,
+    entityIdParam: 'id',
+    description: 'Admin updated an order shipping status.',
+  })
+  @ApiOperation({
+    summary: 'Admin: update shipping status / tracking number of a paid order.',
+  })
+  @ApiOkResponse({ description: 'Order shipping updated.' })
+  updateShipping(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderShippingDto,
+  ) {
+    return this.ordersService.adminUpdateShipping(id, dto);
   }
 
   @Patch(':id/status')

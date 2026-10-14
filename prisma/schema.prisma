@@ -631,6 +631,11 @@ model Order {
   hasPhysicalItems    Boolean              @default(false)
   paidAt              DateTime?
   shippingCost        Decimal              @default(0) @db.Decimal(12, 2)
+  shippingStatus      ShippingStatus?
+  trackingNumber      String?
+  shippingCarrier     String?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
   couponUsage         CouponUsage?
   items               OrderItem[]
   coupon              Coupon?              @relation(fields: [couponId], references: [id])
@@ -1029,6 +1034,12 @@ enum OrderStatus {
   PAID
   CANCELLED
   REFUNDED
+}
+
+enum ShippingStatus {
+  PREPARING
+  SHIPPED
+  DELIVERED
 }
 
 enum PaymentStatus {
