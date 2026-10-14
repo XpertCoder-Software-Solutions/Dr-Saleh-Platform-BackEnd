@@ -52,6 +52,8 @@ async function bootstrap() {
   app.setGlobalPrefix(appConfiguration.apiPrefix);
   app.use('/uploads/books/digital', denyProtectedUploadAccess);
   app.use('/uploads/books/audio', denyProtectedUploadAccess);
+  app.use('/uploads/courses/videos', denyProtectedUploadAccess);
+  app.use('/uploads/courses/pdfs', denyProtectedUploadAccess);
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });

@@ -1665,6 +1665,11 @@ export class CoursesService {
         lessonData.pdfKey = null;
       }
 
+      // A video lesson can carry a PDF attachment (lesson summary).
+      if (updateDto.pdfKey !== undefined) {
+        lessonData.pdfKey = updateDto.pdfKey;
+      }
+
       return lessonData;
     }
 
