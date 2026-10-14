@@ -50,6 +50,7 @@ const orderCouponSelect = {
   currency: true,
   subtotal: true,
   discountAmount: true,
+  shippingCost: true,
   totalAmount: true,
   couponId: true,
   items: {
@@ -353,7 +354,9 @@ export class CouponsService {
 
     const itemDiscount = this.calculateOrderItemDiscount(order);
     const totalAfterRemoval = this.roundMoney(
-      this.toNumberFromDecimal(order.subtotal) - itemDiscount,
+      this.toNumberFromDecimal(order.subtotal) -
+        itemDiscount +
+        this.toNumberFromDecimal(order.shippingCost),
     );
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
       if (order.couponUsage) {
@@ -500,8 +503,11 @@ export class CouponsService {
       currency: order.currency,
       eligibleAmount,
       couponDiscountAmount,
+      // Shipping is never discounted, but it stays part of the total.
       totalAfterDiscount: this.roundMoney(
-        eligibleAmount - couponDiscountAmount,
+        eligibleAmount -
+          couponDiscountAmount +
+          this.toNumberFromDecimal(order.shippingCost),
       ),
     };
   }
