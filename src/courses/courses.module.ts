@@ -8,7 +8,9 @@ import { AdminCourseUploadsController } from './admin-course-uploads.controller'
 import { AdminCoursesController } from './admin-courses.controller';
 import { AdminLessonsController } from './admin-lessons.controller';
 import { CertificatesController } from './certificates.controller';
+import { AdminCourseReviewsController } from './admin-course-reviews.controller';
 import { CourseReviewsController } from './course-reviews.controller';
+import { FeaturedReviewsController } from './featured-reviews.controller';
 import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 import { MyCertificatesController } from './my-certificates.controller';
@@ -24,6 +26,8 @@ import { MyCoursesController } from './my-courses.controller';
     AdminLessonsController,
     CoursesController,
     CourseReviewsController,
+    FeaturedReviewsController,
+    AdminCourseReviewsController,
     MyCoursesController,
     MyCertificatesController,
     CertificatesController,

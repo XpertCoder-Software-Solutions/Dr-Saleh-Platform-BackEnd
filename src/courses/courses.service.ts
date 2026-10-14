@@ -19,6 +19,7 @@ import { randomBytes } from 'node:crypto';
 import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AdminReviewQueryDto } from './dto/admin-review-query.dto';
 import { AdminCourseQueryDto, CourseQueryDto } from './dto/course-query.dto';
 import { CreateCourseCategoryDto } from './dto/create-course-category.dto';
 import { CreateCourseReviewDto } from './dto/create-course-review.dto';
@@ -174,6 +175,25 @@ const courseReviewSelect = {
       profileImage: true,
     },
   },
+} satisfies Prisma.CourseReviewSelect;
+
+const adminCourseReviewSelect = {
+  ...courseReviewSelect,
+  user: {
+    select: {
+      id: true,
+      fullName: true,
+      profileImage: true,
+      email: true,
+      phoneNumber: true,
+    },
+  },
+  course: { select: { id: true, titleAr: true, titleEn: true } },
+} satisfies Prisma.CourseReviewSelect;
+
+const featuredReviewSelect = {
+  ...courseReviewSelect,
+  course: { select: { id: true, titleAr: true, titleEn: true } },
 } satisfies Prisma.CourseReviewSelect;
 
 const certificateSelect = {
@@ -1111,6 +1131,74 @@ export class CoursesService {
         reviews: reviews.map((review) => this.toReview(review)),
         pagination: buildPaginationMeta(page, limit, total),
       },
+    };
+  }
+
+  async adminFindReviews(query: AdminReviewQueryDto) {
+    const { page, limit, skip } = getPaginationParams(query);
+    const where: Prisma.CourseReviewWhereInput = {
+      courseId: query.courseId,
+      isActive: query.isActive,
+      rating: query.rating,
+    };
+
+    const [total, reviews] = await this.prisma.$transaction([
+      this.prisma.courseReview.count({ where }),
+      this.prisma.courseReview.findMany({
+        where,
+        select: adminCourseReviewSelect,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      message: 'Course reviews returned successfully',
+      data: {
+        reviews,
+        pagination: buildPaginationMeta(page, limit, total),
+      },
+    };
+  }
+
+  async adminSetReviewActive(reviewId: string, isActive: boolean) {
+    const existing = await this.prisma.courseReview.findUnique({
+      where: { id: reviewId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Review not found.');
+    }
+
+    const review = await this.prisma.courseReview.update({
+      where: { id: reviewId },
+      data: { isActive },
+      select: adminCourseReviewSelect,
+    });
+
+    return {
+      message: isActive ? 'Review is visible again' : 'Review hidden',
+      data: { review },
+    };
+  }
+
+  async findFeaturedReviews(limit = 6) {
+    const reviews = await this.prisma.courseReview.findMany({
+      where: {
+        isActive: true,
+        rating: { gte: 4 },
+        comment: { not: null },
+        course: { isActive: true },
+      },
+      select: featuredReviewSelect,
+      orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+    });
+
+    return {
+      message: 'Featured reviews returned successfully',
+      data: { reviews },
     };
   }
 
