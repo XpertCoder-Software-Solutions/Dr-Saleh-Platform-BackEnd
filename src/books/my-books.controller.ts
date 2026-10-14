@@ -19,13 +19,70 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CloudFrontService } from '../common/cloudfront/cloudfront.service';
 import { CloudFrontSignedUrlResponseDto } from '../common/cloudfront/dto/cloudfront-signed-url-response.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PrismaService } from '../database/prisma.service';
 
 @ApiTags('My Books')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('my-books')
 export class MyBooksController {
-  constructor(private readonly cloudFrontService: CloudFrontService) {}
+  constructor(
+    private readonly cloudFrontService: CloudFrontService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'List the digital and audio book formats the user owns.',
+  })
+  @ApiOkResponse({ description: 'Owned book formats returned.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async findMine(@CurrentUser('id') userId: string) {
+    const owned = await this.prisma.userBook.findMany({
+      where: { userId },
+      orderBy: { purchasedAt: 'desc' },
+      select: {
+        id: true,
+        purchasedAt: true,
+        bookFormat: {
+          select: {
+            id: true,
+            formatType: true,
+            isActive: true,
+            audioDuration: true,
+            readerFile: true,
+            audioFile: true,
+            book: {
+              select: {
+                id: true,
+                slug: true,
+                titleAr: true,
+                titleEn: true,
+                coverImage: true,
+                isActive: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      message: 'Owned books returned successfully',
+      data: {
+        items: owned.map(({ id, purchasedAt, bookFormat }) => ({
+          id,
+          purchasedAt,
+          bookFormatId: bookFormat.id,
+          formatType: bookFormat.formatType,
+          audioDuration: bookFormat.audioDuration,
+          hasFile: Boolean(bookFormat.readerFile ?? bookFormat.audioFile),
+          isAvailable: bookFormat.isActive && bookFormat.book.isActive,
+          book: bookFormat.book,
+        })),
+      },
+    };
+  }
 
   @Get(':bookFormatId/digital-url')
   @ApiOperation({

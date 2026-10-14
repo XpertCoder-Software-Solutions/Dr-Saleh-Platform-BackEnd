@@ -85,6 +85,27 @@ export class ConsultationsService {
     );
   }
 
+  /** Requests sent with the signed-in user's email (the form pre-fills it). Admin notes stay private. */
+  async findMyRequests(email: string) {
+    const requests = await this.prisma.consultationRequest.findMany({
+      where: {
+        email: { equals: this.normalizeEmail(email), mode: 'insensitive' },
+      },
+      select: consultationRequestSelect,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return {
+      message: 'Consultation requests returned successfully',
+      data: {
+        items: requests.map(
+          ({ adminNotes: _adminNotes, ...request }) => request,
+        ),
+      },
+    };
+  }
+
   async submitRequest(
     createConsultationRequestDto: CreateConsultationRequestDto,
   ): Promise<{ message: string; data: EmptyData }> {
