@@ -15,6 +15,7 @@ import {
   buildPaginationMeta,
   getPaginationParams,
 } from '../common/utils/pagination';
+import { randomBytes } from 'node:crypto';
 import { isPrismaUniqueConstraintError } from '../common/utils/prisma-errors';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -1015,6 +1016,14 @@ export class CoursesService {
         normalizedProgress.lastWatchedAt,
       );
 
+      if (courseCompletion.courseProgress.isCompleted) {
+        await this.issueCertificateIfEnabled(
+          tx,
+          userId,
+          lesson.section.courseId,
+        );
+      }
+
       return {
         progress,
         courseProgress: courseCompletion.courseProgress,
@@ -1366,6 +1375,38 @@ export class CoursesService {
       courseProgress,
       wasAlreadyCompleted: userCourse.completedAt !== null,
     };
+  }
+
+  /**
+   * Issues the course certificate the first time a student completes a course
+   * that has certificates enabled. Safe to call repeatedly.
+   */
+  private async issueCertificateIfEnabled(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    courseId: string,
+  ): Promise<void> {
+    const course = await tx.course.findUnique({
+      where: { id: courseId },
+      select: { certificateEnabled: true },
+    });
+
+    if (!course?.certificateEnabled) {
+      return;
+    }
+
+    const year = new Date().getFullYear();
+    const suffix = randomBytes(4).toString('hex').toUpperCase();
+
+    await tx.certificate.upsert({
+      where: { userId_courseId: { userId, courseId } },
+      update: {},
+      create: {
+        userId,
+        courseId,
+        certificateNumber: `DS-${year}-${suffix}`,
+      },
+    });
   }
 
   private async sendCourseCompletedNotification(
