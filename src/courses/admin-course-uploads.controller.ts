@@ -16,6 +16,7 @@ import {
 } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  OmitType,
   ApiBody,
   ApiConsumes,
   ApiForbiddenResponse,
@@ -38,6 +39,7 @@ import {
 import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CoursesService } from './courses.service';
+import { CreateLessonDto } from './dto/create-lesson.dto';
 
 const uploadsRoot = join(process.cwd(), 'uploads');
 export const courseThumbnailsDirectory = join(
@@ -66,6 +68,13 @@ type LessonMediaFiles = {
   video?: Express.Multer.File[];
   pdf?: Express.Multer.File[];
 };
+
+/** Lesson fields sent alongside the files; the type and keys come from the files. */
+class LessonWithMediaBody extends OmitType(CreateLessonDto, [
+  'lessonType',
+  'videoKey',
+  'pdfKey',
+] as const) {}
 
 class LessonMediaBody {
   /** Read from the file in the browser; optional. */
@@ -177,6 +186,52 @@ export class AdminCourseUploadsController {
           }
         : {}),
       ...(pdf ? { pdfKey: `/uploads/courses/pdfs/${pdf.filename}` } : {}),
+    });
+  }
+
+  @Post('admin/sections/:sectionId/lessons/upload')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'video', maxCount: 1 },
+        { name: 'pdf', maxCount: 1 },
+      ],
+      {
+        storage: diskTo((field) =>
+          field === 'video' ? courseVideosDirectory : coursePdfsDirectory,
+        ),
+        limits: { fileSize: 2 * 1024 * 1024 * 1024 },
+        fileFilter: accept({ video: VIDEO_TYPES, pdf: PDF_TYPES }),
+      },
+    ),
+  )
+  @ApiOperation({
+    summary: 'Admin: create a lesson together with its video and/or PDF.',
+    description:
+      'With a video it is a VIDEO lesson (the PDF becomes an attachment); with only a PDF it is a PDF lesson.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ description: 'Lesson created.' })
+  createLessonWithMedia(
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
+    @Body() body: LessonWithMediaBody,
+    @UploadedFiles() files: LessonMediaFiles = {},
+  ) {
+    const video = files.video?.[0];
+    const pdf = files.pdf?.[0];
+
+    if (!video && !pdf) {
+      throw new BadRequestException('Upload a video or a PDF.');
+    }
+
+    return this.coursesService.adminCreateLesson(sectionId, {
+      ...body,
+      lessonType: video ? LessonType.VIDEO : LessonType.PDF,
+      videoKey: video ? `/uploads/courses/videos/${video.filename}` : undefined,
+      videoDurationSeconds: video
+        ? (body.videoDurationSeconds ?? 0)
+        : undefined,
+      pdfKey: pdf ? `/uploads/courses/pdfs/${pdf.filename}` : undefined,
     });
   }
 }
